@@ -17,6 +17,13 @@
     "skipLibCheck": true,
     "strict": true,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+
+    /* Paths */
+    "baseUrl": "./",
+    "paths": {
+      "@lib/*": ["lib/*"],
+      "@potato/*": ["potato/*"]
+    }
   }
 }

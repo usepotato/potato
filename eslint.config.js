@@ -23,7 +23,18 @@ export default [
 			'object-curly-spacing': ['error', 'always'],
 			'arrow-spacing': ['error', { before: true, after: true }],
 			'key-spacing': ['error', { beforeColon: false, afterColon: true }],
-			'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+			'no-unused-vars': ['error',
+				{
+					'argsIgnorePattern': '^_',
+					'varsIgnorePattern': '^_',
+					'caughtErrorsIgnorePattern': '^_'
+				}
+			],
+			'@typescript-eslint/no-unused-vars': ['error', {
+				'argsIgnorePattern': '^_',
+				'varsIgnorePattern': '^_',
+				'caughtErrorsIgnorePattern': '^_'
+			}],
 		},
 	},
 ];

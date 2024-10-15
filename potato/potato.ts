@@ -1,7 +1,6 @@
 import redis from '@lib/redis';
 import { getBrowserData } from './helper';
 import getLogger from '@lib/logging';
-import util from 'util';
 import puppeteer, { Browser } from 'puppeteer';
 
 const logger = getLogger('potato');
@@ -88,6 +87,16 @@ class Potato {
 			timestamp: Date.now(),
 		};
 	}
+
+	async addSubscriber(socketId: string) {
+		// TODO
+	}
+
+	async removeSubscriber(socketId: string) {
+		await this._setAvailable();
+	}
+
+
 }
 
 

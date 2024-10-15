@@ -3,7 +3,7 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "dev": "DEBUG=potato* bun --watch index.ts",
+    "dev": "DEBUG=potato:* bun --watch index.ts",
     "lint": "eslint ."
   },
   "devDependencies": {
@@ -20,13 +20,14 @@
   "peerDependencies": {},
   "dependencies": {
     "axios": "^1.7.7",
+    "cors": "^2.8.5",
     "debug": "^4.3.7",
     "dotenv": "^16.4.5",
     "eslint": "^9.12.0",
     "express": "^4.21.1",
     "ioredis": "^5.4.1",
     "puppeteer": "^23.5.3",
-    "socket.io": "^4.8.0",
+    "socket.io": "4.7.2",
     "uuid": "^10.0.0"
   }
 }

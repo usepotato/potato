@@ -79,8 +79,15 @@ class Potato {
 				}
 			};
 
-			const onResponse = (response: HTTPResponse) => {
-				// console.log('onResponse', response);
+			const onResponse = async (response: HTTPResponse) => {
+				try {
+					const content = await response.buffer();
+					const contentType = response.headers()['content-type'];
+					this.requestCache[response.url()] = [content, contentType];
+				} catch (error) {
+					logger.error('Error caching response', error);
+				}
+
 			};
 
 
@@ -209,7 +216,6 @@ class Potato {
 
 	async publishUpdate(update: BrowserUpdate) {
 		for (const subscriber of this.subscribers) {
-			logger.info('publishUpdate', update, 'to', subscriber);
 			this.io.to(subscriber).emit('browser-update', update);
 		}
 	}
@@ -224,6 +230,40 @@ class Potato {
 		if (this.subscribers.size === 0) {
 			await this._setAvailable();
 		}
+	}
+
+	async getStaticResource(path: string) {
+		const page = await this._getPage();
+		if (!page) { return null; }
+
+		if (path.startsWith('/')) {
+			path = `${page.url()}${path}`;
+		}
+
+		if (!path.startsWith('http')) {
+			if (!path.startsWith('/')) {
+				path = `/${path}`;
+			}
+			const originUrl = page.url().split('/').slice(0, 3).join('/');
+			path = `${originUrl}${path}`;
+		}
+
+		if (this.requestCache[path]) {
+			const [content, contentType] = this.requestCache[path];
+			if (content.length > 0) {
+				return { buffer: content, contentType };
+			}
+		}
+
+		//@ts-ignore
+		const dataUrl = await page.evaluate((path) => window.getBase64FromUrl(path), path);
+		if (!dataUrl) { return null; }
+		const contentType = dataUrl.split(':')[1].split(';')[0];
+		const content = dataUrl.split(',')[1];
+		const contentBytes = Buffer.from(content, 'base64');
+
+		this.requestCache[path] = [contentBytes, contentType];
+		return { buffer: contentBytes, contentType };
 	}
 
 

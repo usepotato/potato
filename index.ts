@@ -38,6 +38,15 @@ app.get('/health', (req, res) => {
 	res.send('OK');
 });
 
+app.get('/bs/:id/*', async (req, res) => {
+	const { id } = req.params;
+	// @ts-ignore
+	const path = req.params[0] as string;
+	const { buffer, contentType } = await app.locals.potato.getStaticResource(path);
+	res.set('Content-Type', contentType);
+	res.send(buffer);
+});
+
 app.post('/start-session', async (req, res) => {
 	const { browserSessionId } = req.body;
 	logger.log(`Starting session for browser session ${browserSessionId}`);

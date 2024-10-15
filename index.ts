@@ -51,10 +51,13 @@ app.post('/start-session', async (req, res) => {
 io.on('connection', async (socket: Socket) => {
 	logger.info(`New connection: ${socket.id}`);
 
+	await app.locals.potato.addSubscriber(socket.id);
+
 	socket.emit('test', 'test');
 
-	socket.on('connect_error', (error) => {
+	socket.on('connect_error', async (error) => {
 		logger.error(`Connection error: ${error}`);
+		await app.locals.potato.addSubscriber(socket.id);
 	});
 
 	socket.on('disconnect', async () => {
@@ -67,8 +70,7 @@ io.on('connection', async (socket: Socket) => {
 	});
 
 	socket.on('browser-update', async (data) => {
-		// await io.emit('browser-update', data, socket.id);
-		// logger.info(`Browser update: ${data}`);
+		await app.locals.potato.processUpdate(data);
 	});
 });
 
@@ -93,7 +95,7 @@ server.listen(port, async () => {
 	const baseUrl = await getBaseUrl();
 	const workerId = baseUrl.replaceAll('/', '').replaceAll(':', '_');
 
-	app.locals.potato = new Potato(workerId, baseUrl);
+	app.locals.potato = new Potato(io, workerId, baseUrl);
 	await app.locals.potato.launch();
 
 	['SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((signalType) => {

@@ -35,6 +35,7 @@ export default [
 				'varsIgnorePattern': '^_',
 				'caughtErrorsIgnorePattern': '^_'
 			}],
+			'@typescript-eslint/ban-ts-comment': ['off'],
 		},
 	},
 ];

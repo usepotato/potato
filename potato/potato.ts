@@ -85,7 +85,7 @@ class Potato {
 					const contentType = response.headers()['content-type'];
 					this.requestCache[response.url()] = [content, contentType];
 				} catch (error) {
-					logger.error('Error caching response', error);
+					logger.error('Error caching response', response.url());
 				}
 
 			};

@@ -7,6 +7,7 @@ import { getBaseUrl } from '@lib/util';
 import redis from '@lib/redis';
 import Potato from '@potato/potato';
 import cors from 'cors';
+import path from 'path';
 
 const logger = getLogger('index');
 
@@ -31,9 +32,12 @@ app.use(cors({
 	credentials: true,
 }));
 
+app.use(express.static(path.join(__dirname, 'dist')));
+
 app.get('/', (req, res) => {
-	res.send('Hello World!');
+	res.sendFile(path.resolve(__dirname, 'dist/potato/index.html'));
 });
+
 app.get('/health', (req, res) => {
 	res.send('OK');
 });

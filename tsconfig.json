@@ -23,7 +23,8 @@
     "baseUrl": "./",
     "paths": {
       "@lib/*": ["lib/*"],
-      "@potato/*": ["potato/*"]
+      "@potato/*": ["potato/*"],
     }
-  }
+  },
+  "exclude": ["node_modules", "dist", "build", "out", "public", "server", "frontend"]
 }

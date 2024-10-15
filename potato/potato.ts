@@ -37,6 +37,11 @@ class Potato {
 		await redis.srem('browser:available', this.workerId);
 	}
 
+	async close() {
+		await this._setOffline();
+		await this.browser?.disconnect();
+	}
+
 	async launch() {
 		try {
 			const browserData = await getBrowserData();

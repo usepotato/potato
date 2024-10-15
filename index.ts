@@ -62,6 +62,7 @@ app.listen(port, async () => {
 
 async function handleShutdown() {
 	logger.log('Shutting down...');
+	await app.locals.potato.close();
 	await redis.quit();
 	process.exit(0);
 }

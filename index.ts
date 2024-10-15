@@ -1,12 +1,14 @@
 import express from 'express';
+import serverRouter from './potato/server.ts';
+import getLogger from './lib/logging';
+
+const logger = getLogger('index');
 
 const app = express();
-const port = 8080;
 
-app.get('/', (req, res) => {
-	res.send('Hello World!');
-});
+app.use('/', serverRouter);
 
+const port = 25565;
 app.listen(port, () => {
-	console.log(`Listening on port ${port}...`);
+	logger.log(`Listening on port ${port}...`);
 });

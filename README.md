@@ -1,3 +1,2 @@
-![Logo](./icon.png)
-# Potato
-🥔 potato is an open source agentic web browser
+# 🥔 Potato
+potato is an open source agentic web browser

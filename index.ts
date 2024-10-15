@@ -1,11 +1,11 @@
 import express from 'express';
 import { Server } from 'socket.io';
-import serverRouter, { setupSocket } from '@potato/server';
 import getLogger from '@lib/logging';
 import Config from '@lib/config';
 import http from 'http';
 import { getBaseUrl } from '@lib/util';
 import redis from '@lib/redis';
+import Potato from '@potato/potato';
 
 const logger = getLogger('index');
 
@@ -22,39 +22,46 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/', serverRouter);
 
-setupSocket(io);
+app.get('/', (req, res) => {
+	res.send('Hello World!');
+});
+app.get('/health', (req, res) => {
+	res.send('OK');
+});
 
-// const workerId = uuidv4();
-let WORKER_ID: string;
-let BASE_URL: string;
+app.post('/start-session', async (req, res) => {
+	const { browserSessionId } = req.body;
+	logger.log(`Starting session for browser session ${browserSessionId}`);
 
-const setAvailable = async () => {
-	await redis.sadd('browser:available', WORKER_ID);
-	await redis.set(`browser:${WORKER_ID}`, JSON.stringify({ base_url: BASE_URL, state: 'available' }));
+	const response = await app.locals.potato.startSession(browserSessionId);
 
-	logger.log(`Worker ${WORKER_ID} is available at ${BASE_URL}`);
-};
+	res.send(response);
+});
 
-const setOffline = async () => {
-	await redis.del(`browser:${WORKER_ID}`);
-	await redis.srem('browser:available', WORKER_ID);
-	logger.log(`Worker ${WORKER_ID} is offline`);
-};
+
+io.on('connection', (socket) => {
+	logger.info(`New connection: ${socket.id}`);
+});
+
+io.on('disconnect', (socket) => {
+	logger.info(`Disconnected: ${socket.id}`);
+});
 
 const port = Config.PORT;
 
 app.listen(port, async () => {
 	logger.log(`Listening on port ${port}...`);
-	BASE_URL = await getBaseUrl();
-	WORKER_ID = BASE_URL.replaceAll('/', '').replaceAll(':', '_');
-	await setAvailable();
+
+	const baseUrl = await getBaseUrl();
+	const workerId = baseUrl.replaceAll('/', '').replaceAll(':', '_');
+
+	app.locals.potato = new Potato(workerId, baseUrl);
+	await app.locals.potato.launch();
 });
 
 async function handleShutdown() {
 	logger.log('Shutting down...');
-	await setOffline();
 	await redis.quit();
 	process.exit(0);
 }

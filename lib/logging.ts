@@ -7,6 +7,8 @@ const getLogger = (namespace: string) => {
 		// eslint-disable-next-line
 		log: (...args: any[]) => debug('potato:' + namespace + ':log')(...(args as [string, ...any[]])),
 		// eslint-disable-next-line
+		info: (...args: any[]) => debug('potato:' + namespace + ':log')(...(args as [string, ...any[]])),
+		// eslint-disable-next-line
 		error: (...args: any[]) => debug('potato:' + namespace + ':error')(...(args as [string, ...any[]])),
 	};
 };

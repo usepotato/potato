@@ -1,9 +1,9 @@
 {
   "name": "potato",
-  "module": "index.ts",
+  "module": "potato/index.ts",
   "type": "module",
   "scripts": {
-    "dev": "DEBUG=potato:* bun --watch index.ts",
+    "dev": "DEBUG=potato:* bun --watch potato/index.ts",
     "client": "webpack serve --config ./webpack.config.cjs --mode development --hot",
     "build-client": "rm -rf dist && webpack --config ./webpack.config.cjs --mode production",
     "lint": "eslint ."

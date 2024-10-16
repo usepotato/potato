@@ -1,6 +1,6 @@
-import redis from '@lib/redis';
+import redis from '@lib/redis.js';
 import { getBrowserData } from './helper';
-import getLogger from '@lib/logging';
+import getLogger from '@lib/logging.js';
 import puppeteer, { Browser, Frame, HTTPResponse, Target, TargetType } from 'puppeteer';
 import browserPageScripts from './browserPageScripts.js';
 import type { Server } from 'socket.io';

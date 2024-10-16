@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import styled from '@emotion/styled';
 import { ReactComponent as ArrowBackIcon } from '@public/icons/arrow-back.svg';
 import { ReactComponent as ReloadIcon } from '@public/icons/reload.svg';
+import { appendIFrameStyle } from './util';
 
 const PageContainer = styled(Box)`
 	height: 100vh;
@@ -403,8 +404,8 @@ const App: React.FC = () => {
 			// onBlur();
 		});
 
-		// appendIFrameStyle(nDoc);
-		// TODO: For click and mousemove, can just get the element that is clicked/hovered to save a lot of network usage!
+		appendIFrameStyle(nDoc);
+		// maybe TODO: For click and mousemove, can just get the element that is clicked/hovered to save a lot of network usage!
 		nDoc.removeEventListener('click', onIFrameClick);
 		nDoc.addEventListener('click', onIFrameClick);
 

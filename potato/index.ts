@@ -5,7 +5,7 @@ import Config from '@lib/config';
 import http from 'http';
 import { getBaseUrl } from '@lib/util';
 import redis from '@lib/redis';
-import Potato from '@potato/potato';
+import Potato from './potato';
 import cors from 'cors';
 import path from 'path';
 
@@ -32,10 +32,10 @@ app.use(cors({
 	credentials: true,
 }));
 
-app.use('/potato', express.static(path.join(__dirname, 'dist/potato')));
+app.use('/potato', express.static(path.join(__dirname, '../dist/potato')));
 
 app.get('/potato', (req, res) => {
-	res.sendFile(path.resolve(__dirname, 'dist/potato/index.html'));
+	res.sendFile(path.resolve(__dirname, '../dist/potato/index.html'));
 });
 
 app.get('/health', (req, res) => {

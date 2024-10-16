@@ -120,5 +120,10 @@ module.exports = (env, argv) => ({
 			resourceRegExp: /^\.\/locale$/,
 			contextRegExp: /moment$/,
 		}),
+		new CopyPlugin({
+			patterns: [
+				{ from: './frontend/public/favicon.ico', to: 'potato/favicon.ico' },
+			],
+		}),
 	],
 });

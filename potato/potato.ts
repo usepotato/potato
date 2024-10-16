@@ -227,6 +227,7 @@ class Potato {
 
 	async removeSubscriber(socketId: string) {
 		this.subscribers.delete(socketId);
+		logger.info(`Removed subscriber ${socketId}, ${this.subscribers.size} subscribers remaining`);
 		if (this.subscribers.size === 0) {
 			await this._setAvailable();
 		}

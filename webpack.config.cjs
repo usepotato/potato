@@ -53,7 +53,15 @@ module.exports = (env, argv) => ({
 			},
 			{
 				test: /\.svg$/,
-				use: ['@svgr/webpack', 'file-loader'],
+				use: [
+					'@svgr/webpack',
+					{
+						loader: 'file-loader',
+						options: {
+							name: './potato/[name].[ext]',
+						},
+					},
+				],
 			},
 		],
 	},

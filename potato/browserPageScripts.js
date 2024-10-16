@@ -101,6 +101,7 @@ export default () => {
 		// remove scripts, iframes
 		const scripts = node.querySelectorAll('script');
 		scripts.forEach(s => s.remove());
+		// TODO: should be able to process iframes
 		const iframes = node.querySelectorAll('iframe');
 		iframes.forEach(i => i.remove());
 		const links = node.querySelectorAll('link');
@@ -109,131 +110,11 @@ export default () => {
 				l.remove();
 			}
 		});
-		// find imgs, links
-		const nodes = Array.from(node.querySelectorAll('img, link'));
-		if (node.tagName === 'IMG' || node.tagName === 'LINK') {
-			nodes.push(node);
-		}
-		// check their href or src attribute
-		nodes.forEach(n => {
-			if (n.src) {
-				// replace url to start with /bs/
-				if (n.src.startsWith('data:')) {
-					return;
-				}
-				if (n.src.startsWith('//')) {
-					n.src = 'https:' + n.src;
-				}
-				if (n.src.startsWith('/bs/')) {
-					return;
-				}
-				n.setAttribute('src', `/bs/${window.browserSessionId}/${n.src}`);
-			}
-			if (n.srcset) {
-				const updatedSrcset = n.srcset.split(',').map(s => {
-					let [src, size] = s.trim().split(/\s+/);
-					if (src.startsWith('data:')) {
-						return s;
-					}
-					if (src.startsWith('//')) {
-						src = 'https:' + src;
-					}
-					if (src.startsWith('/bs/')) {
-						return s;
-					}
-					return `/bs/${window.browserSessionId}/${src} ${size}`;
-				}).join(', ');
-				n.setAttribute('srcset', updatedSrcset);
-			}
-			if (n.href) {
-				if (n.href.startsWith('//')) {
-					n.href = 'https:' + n.href;
-				}
-				if (n.href.startsWith('/bs/')) {
-					return;
-				}
-				n.setAttribute('href', `/bs/${window.browserSessionId}/${n.href}`);
-			}
-		});
-
-		const divs = Array.from(node.querySelectorAll('div'));
-		if (node.tagName === 'DIV') {
-			divs.push(node);
-		}
-		divs.forEach(d => {
-			if (d.style.backgroundImage) {
-				const match = d.style.backgroundImage.match(/url\(([^)]+)\)/);
-				if (match) {
-					let url = match[1].replace(/^['"]|['"]$/g, '');
-					if (url.startsWith('/bs/')) {
-						return;
-					}
-					if (url.startsWith('//')) {
-						url = 'https:' + url;
-					}
-					if (url.startsWith('data:')) {
-						return;
-					}
-					d.style.backgroundImage = d.style.backgroundImage.replace(match[0], `url(/bs/${window.browserSessionId}/${url})`);
-				}
-			}
-			if (d.style.background) {
-				const match = d.style.background.match(/url\(([^)]+)\)/);
-				if (match) {
-					let url = match[1].replace(/^['"]|['"]$/g, '');
-					if (url.startsWith('/bs/')) {
-						return;
-					}
-					if (url.startsWith('//')) {
-						url = 'https:' + url;
-					}
-					if (url.startsWith('data:')) {
-						return;
-					}
-					d.style.background = d.style.background.replace(match[0], `url(/bs/${window.browserSessionId}/${url})`);
-				}
-			}
-		});
-
-		const styleTags = Array.from(node.querySelectorAll('style'));
-		if (node.tagName === 'STYLE') {
-			styleTags.push(node);
-		}
-		styleTags.forEach(s => {
-			let content = s.innerHTML;
-			const urlMatches = content.match(/url\(([^)]+)\)/g);
-			if (urlMatches) {
-				urlMatches.forEach(match => {
-					let url = match.match(/url\(([^)]+)\)/)[1];
-					url = url.replace(/^['"]|['"]$/g, '');
-					if (url.startsWith('data:')) {
-						return;
-					}
-					if (url.startsWith('//')) {
-						url = 'https:' + url;
-					}
-					if (url.startsWith('/bs/')) {
-						return;
-					}
-					content = content.replace(match, match.replace(url, `/bs/${window.browserSessionId}/${url}`));
-				});
-				s.innerHTML = content;
-			}
-		});
 
 		return node;
 	};
 
 	console.log('sending initial mutation');
-
-	// window.shinpadsUpdate({
-	// 	type: 'mutation',
-	// 	data: {
-	// 		type: 'childList',
-	// 		addedNodes: [window.getNodeJson(document.body)],
-	// 		shinpadsId: 0,
-	// 	}
-	// });
 
 	window.assignDataIds(document.body.parentElement);
 

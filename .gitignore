@@ -10,7 +10,7 @@ yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
 
-# Caches 
+# Caches
 
 .cache
 
@@ -119,6 +119,7 @@ out
 
 .nuxt
 dist
+build
 
 # Gatsby files
 

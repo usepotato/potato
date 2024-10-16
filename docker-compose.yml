@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  potato:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: potato
+    network_mode: host
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+
+
+
+  chrome:
+    image: zenika/alpine-chrome:latest
+    shm_size: '2gb'
+    cap_add:
+      - SYS_ADMIN
+    ports:
+      - "9222:9222"
+    command:
+      - --no-sandbox
+      - --headless
+      - --remote-debugging-address=0.0.0.0
+      - --remote-debugging-port=9222

@@ -68,6 +68,15 @@ app.post('/start-session', async (req, res) => {
 	res.send(response);
 });
 
+app.post('/run-web-action', async (req, res) => {
+	const { browserSessionId, action } = req.body;
+	logger.log(`Running web action for browser session ${browserSessionId}`);
+
+	const response = await app.locals.potato.runWebAction(browserSessionId, action);
+
+	res.send(response);
+});
+
 
 io.on('connection', async (socket: Socket) => {
 	logger.info(`New connection: ${socket.id}`);

@@ -281,14 +281,22 @@ class Potato {
 		return { buffer: contentBytes, contentType };
 	}
 
-	async runWebAction(action: WebAction) {
+	async runWebAction(browserSessionId: string, action: WebAction) {
 		const page = await this._getPage();
 		if (!page) { return false; }
 
+		if (browserSessionId !== this.sessionId) {
+			logger.error('Browser session id does not match');
+			return false;
+		}
+
 		try {
 			const query = buildQueryFromElementData(action.element);
-			await page.waitForSelector(query);
-			const element = await page.$(query);
+			if (!query) { throw new Error('Element not found'); }
+			logger.info(`Waiting for element ${query}`);
+			// @ts-ignore
+			const element = await page.evaluate((query) => document.querySelector(query), query);
+			logger.info(`Element found ${element}`);
 			if (!element) { throw new Error('Element not found'); }
 			await element.click();
 		} catch (error) {

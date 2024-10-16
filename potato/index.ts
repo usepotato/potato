@@ -10,6 +10,7 @@ import cors from 'cors';
 import path from 'path';
 import WebSocket from 'ws';
 import { Browser, Connection } from 'puppeteer';
+import { URL } from 'url';
 // import { NodeWebSocketTransport } from 'puppeteer-core';
 
 const logger = getLogger('index');
@@ -66,7 +67,8 @@ app.get('/bs/:id/*', async (req, res) => {
 	const { id } = req.params;
 	// @ts-ignore
 	const path = req.params[0] as string;
-	const { buffer, contentType } = await app.locals.potato.getStaticResource(path);
+	const queryString = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
+	const { buffer, contentType } = await app.locals.potato.getStaticResource(path + queryString);
 	res.set('Content-Type', contentType);
 	res.send(buffer);
 });
@@ -74,7 +76,8 @@ app.get('/bs/:id/*', async (req, res) => {
 app.get('/*', async (req, res) => {
 	// @ts-ignore
 	const path = req.params[0] as string;
-	const { buffer, contentType } = await app.locals.potato.getStaticResource(path);
+	const queryString = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
+	const { buffer, contentType } = await app.locals.potato.getStaticResource(path + queryString);
 	res.set('Content-Type', contentType);
 	res.send(buffer);
 });

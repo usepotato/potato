@@ -1,7 +1,7 @@
-<div style="display: flex; align-items: center; gap: 8px" >
-<img src="./frontend/public/icon.png" with="32" height="32" style="margin-top: 4x;">
-<h1>potato</h1>
-</div>
+<h1>
+  <img src="./frontend/public/icon.png" with="28" height="28" style="margin: auto;">
+  potato
+</h1>
 <p><a href="https://usepotato.com">potato</a> is an open source agentic web browser</p>
 
 ## Examples

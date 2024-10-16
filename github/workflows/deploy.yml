@@ -1,0 +1,44 @@
+# script to auto deploy to EC2 instnace
+name: Build and Push
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: shinpads
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create .env
+        run: |
+          touch .env
+          echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> .env
+          echo "SESSION_SECRET=${{ secrets.SESSION_SECRET }}" >> .env
+
+      - name: Setup AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-1
+
+      - name: Build Docker Image
+        run: |
+          docker compose build potato
+
+      - name: Push Browser Server to ECR
+        run: |
+          aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 383806609161.dkr.ecr.us-west-1.amazonaws.com
+          docker push  383806609161.dkr.ecr.us-west-1.amazonaws.com/potato:latest

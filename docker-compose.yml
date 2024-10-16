@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: potato
+    image: 383806609161.dkr.ecr.us-west-1.amazonaws.com/potato
     network_mode: host
     ports:
       - "8080:80"

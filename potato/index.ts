@@ -8,11 +8,16 @@ import redis from '@lib/redis';
 import Potato from './potato';
 import cors from 'cors';
 import path from 'path';
+import WebSocket from 'ws';
+import { Browser, Connection } from 'puppeteer';
+// import { NodeWebSocketTransport } from 'puppeteer-core';
 
 const logger = getLogger('index');
 
 const app = express();
 const server = http.createServer(app);
+const wss = new WebSocket.Server({ server, path: '/puppeteer' });
+
 
 const io = new Server(server, {
 	cors: {
@@ -23,6 +28,16 @@ const io = new Server(server, {
 	transports: ['websocket', 'polling'],
 });
 
+
+const launchPromise = (async () => {
+	const baseUrl = await getBaseUrl();
+	const workerId = baseUrl.replaceAll('/', '').replaceAll(':', '_');
+	app.locals.potato = new Potato(io, workerId, baseUrl);
+	await app.locals.potato.launch();
+	logger.info('Potato launched');
+})();
+
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
@@ -31,6 +46,11 @@ app.use(cors({
 	allowedHeaders: ['*'],
 	credentials: true,
 }));
+
+app.all('*', async (req, res, next) => {
+	await launchPromise;
+	next();
+});
 
 app.use('/potato', express.static(path.join(__dirname, '../dist/potato')));
 
@@ -80,6 +100,7 @@ app.post('/run-web-action', async (req, res) => {
 
 io.on('connection', async (socket: Socket) => {
 	logger.info(`New connection: ${socket.id}`);
+	await launchPromise;
 
 	await app.locals.potato.addSubscriber(socket.id);
 
@@ -116,17 +137,46 @@ io.on('disconnect', () => {
 	logger.info('Disconnected!!!');
 });
 
+wss.on('connection', async (ws: WebSocket) => {
+	await launchPromise;
+
+	app.locals.potato.proxySocket.on('message', (message: string) => {
+		ws.send(message);
+	});
+
+	app.locals.potato.proxySocket.on('error', (error) => {
+		logger.error(`Puppeteer connection error: ${error}`);
+	});
+
+	app.locals.potato.proxySocket.on('close', () => {
+		ws.close();
+	});
+
+	app.locals.potato.proxySocket.on('disconnected', () => {
+		ws.close();
+	});
+
+	ws.on('error', (error) => {
+		logger.error(`Puppeteer WS connection error: ${error}`);
+	});
+
+	ws.on('message', async (message: string) => {
+		const { id, method, params } = JSON.parse(message);
+		app.locals.potato.proxySocket.send(JSON.stringify({ id, method, params }));
+	});
+
+	ws.on('close', () => {
+		logger.info('Puppeteer WS connection closed');
+	});
+
+
+});
+
 
 const port = Config.PORT;
 
 server.listen(port, async () => {
 	logger.log(`Listening on port ${port}...`);
-
-	const baseUrl = await getBaseUrl();
-	const workerId = baseUrl.replaceAll('/', '').replaceAll(':', '_');
-
-	app.locals.potato = new Potato(io, workerId, baseUrl);
-	await app.locals.potato.launch();
 
 	['SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((signalType) => {
 		process.on(signalType, handleShutdown.bind(null));

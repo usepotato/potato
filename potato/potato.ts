@@ -1,10 +1,11 @@
 import redis from '@lib/redis.js';
 import { getBrowserData } from './helper';
 import getLogger from '@lib/logging.js';
-import puppeteer, { Browser, Frame, HTTPResponse, Target, TargetType } from 'puppeteer';
+import puppeteer, { Browser, Frame, HTTPResponse, Page, Target, TargetType } from 'puppeteer';
 import browserPageScripts from './browserPageScripts.js';
 import type { Server } from 'socket.io';
 import { buildQueryFromElementData } from 'util.js';
+import WebSocket from 'ws';
 
 const logger = getLogger('potato');
 
@@ -33,6 +34,9 @@ class Potato {
 	requestCache: Record<string, [Buffer, string]>;
 	io: Server;
 	subscribers: Set<string>;
+	browserWsUrl?: string;
+	proxySocket: WebSocket | null;
+
 	constructor(io: Server, workerId: string, baseUrl: string) {
 		this.io = io;
 		this.workerId = workerId;
@@ -41,6 +45,7 @@ class Potato {
 		this.sessionId = null;
 		this.requestCache = {};
 		this.subscribers = new Set<string>();
+		this.proxySocket = null;
 	}
 
 	async _setAvailable() {
@@ -61,7 +66,7 @@ class Potato {
 		await redis.srem('browser:available', this.workerId);
 	}
 
-	async _getPage() {
+	async _getPage(): Promise<Page | null> {
 		if (!this.browser) { return null; }
 		const pages = await this.browser.pages();
 		if (pages.length) return pages[0];
@@ -78,9 +83,13 @@ class Potato {
 	async launch() {
 		try {
 			const browserData = await getBrowserData();
-			const webSocketUrl = browserData.webSocketDebuggerUrl;
+			this.browserWsUrl = browserData.webSocketDebuggerUrl;
+			if (!this.browserWsUrl) {
+				throw new Error('Browser not connected');
+			}
+			this.proxySocket = new WebSocket(this.browserWsUrl);
 			logger.info('browserData', JSON.stringify(browserData));
-			this.browser = await puppeteer.connect({ browserWSEndpoint: webSocketUrl });
+			this.browser = await puppeteer.connect({ browserWSEndpoint: this.browserWsUrl });
 
 			const onShinpadsUpdate = (msg: string) => {
 				try {
@@ -143,7 +152,7 @@ class Potato {
 
 			await this._setAvailable();
 
-			logger.info(`Browser connected on ${webSocketUrl}`);
+			logger.info(`Browser connected on ${this.browserWsUrl}`);
 		} catch (error) {
 			logger.error('Failed to launch browser', error);
 		}

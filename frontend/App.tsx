@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import styled from '@emotion/styled';
 import { ReactComponent as ArrowBackIcon } from '@public/icons/arrow-back.svg';
 import { ReactComponent as ReloadIcon } from '@public/icons/reload.svg';
+import { ReactComponent as LogoIcon } from '@public/icon.svg';
 import { appendIFrameStyle } from './util';
 
 const PageContainer = styled(Box)`
@@ -472,6 +473,9 @@ const App: React.FC = () => {
 			<PageContentContainer>
 				<BrowserContainer boxShadow='md'>
 					<BrowserNavBar>
+						<Box display='flex' borderRadius="5px">
+							<LogoIcon width={32} height={32} />
+						</Box>
 						<NavButtons>
 							<IconButton onClick={onGoBack}>
 								<ArrowBackIcon width={16} height={16} fill='currentColor' />

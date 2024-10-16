@@ -1,23 +1,89 @@
-# Potato
-potato is an open source agentic web browser
+<div style="display: flex; align-items: center; gap: 8px" >
+<img src="./frontend/public/icon.png" with="32" height="32" style="margin-top: 4x;">
+<h1>potato</h1>
+</div>
+<p><a href="https://usepotato.com">potato</a> is an open source agentic web browser</p>
 
-## Setup
+## Examples
 
-### Requirements
-  - bun
-  - Redis
+### Simple web actions
+```python
+potato_client = Potato("POTATO_API_KEY")
 
+potato = await potato_client.start_session()
+await potato.navigate('https://papajohns.com')
+await potato.act('click start order')
 
-### Installation
-- configure .env file
-Install dependancies
-```bash
-bun install
+await potato.act('select delivery')
+await potato.act('fill in my address')
+await potato.act('click start order')
+
+options = await potato.extract('available options')
+await potato.act('add to order', option=options[0])
+
+await potato.act('go to checkout page', multi_step=True)
+
+await potato.end()
 ```
 
-Run
-```bash
-bun dev
+### Complex, general actions
+```python
+potato_client = Potato("POTATO_API_KEY")
+
+potato = await potato_client.start_session()
+
+await potato.job("List the pricing plans of the 5 most popular tax software products")
+
+await potato.end()
+```
+
+### Tools
+```python
+potato_client = Potato("POTATO_API_KEY")
+
+tools = [evaluate_relevance]
+
+potato = await potato_client.start_session()
+
+await potato.navigate('https://ycombinator.com/companies')
+companies = await potato.extract("linkedin urls of any companies at least 80% relevant")
+
+await potato.end()
+```
+
+### Monitoring
+```python
+potato_client = Potato("POTATO_API_KEY")
+
+potato = await potato_client.start_session()
+
+await potato.navigate('https://ycombinator.com/companies')
+
+async for new_applicant in potato.monitor("new applicants" schema=db.Applicant):
+  applicant = Applicant.model_validate(new_applicant)
+  db.add(applicant)
+  db.commit()
+
 ```
 
 
+### Puppeteer/Playwright
+```python
+potato_client = Potato("POTATO_API_KEY")
+
+potato = await potato_client.start_session()
+
+async with async_playwright() as p:
+  browser = await p.chromium.connect_over_cdp(
+    ws_endpoint=potato.wsUrl,
+  )
+
+  page = await browser.new_page()
+  await page.goto("https://usepotato.com")
+  title = await page.title()
+  print(title)
+
+await potato.close()
+
+
+```

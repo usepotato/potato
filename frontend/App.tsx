@@ -473,7 +473,7 @@ const App: React.FC = () => {
 			<PageContentContainer>
 				<BrowserContainer boxShadow='md'>
 					<BrowserNavBar>
-						<Box display='flex' borderRadius="5px">
+						<Box display='flex' borderRadius="5px" marginLeft={0.5}>
 							<LogoIcon width={32} height={32} />
 						</Box>
 						<NavButtons>

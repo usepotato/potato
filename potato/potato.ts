@@ -4,6 +4,7 @@ import getLogger from '@lib/logging.js';
 import puppeteer, { Browser, Frame, HTTPResponse, Target, TargetType } from 'puppeteer';
 import browserPageScripts from './browserPageScripts.js';
 import type { Server } from 'socket.io';
+import { buildQueryFromElementData } from 'util.js';
 
 const logger = getLogger('potato');
 
@@ -12,6 +13,17 @@ interface BrowserUpdate {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 	data: any;
 }
+
+interface WebAction {
+	id: string;
+	type: string;
+	parameter: Record<string, string>;
+	element: Record<string, string>;
+	subActions: WebAction[];
+	attribute: string | null;
+	filters: Record<string, string>[];
+}
+
 
 class Potato {
 	workerId: string;
@@ -70,7 +82,7 @@ class Potato {
 			logger.info('browserData', JSON.stringify(browserData));
 			this.browser = await puppeteer.connect({ browserWSEndpoint: webSocketUrl });
 
-			const onShinpadsUpdate = (msg: any) => {
+			const onShinpadsUpdate = (msg: string) => {
 				try {
 					const data = JSON.parse(msg);
 					this.publishUpdate(data);
@@ -84,7 +96,7 @@ class Potato {
 					const content = await response.buffer();
 					const contentType = response.headers()['content-type'];
 					this.requestCache[response.url()] = [content, contentType];
-				} catch (error) {
+				} catch (_) {
 					logger.error('Error caching response', response.url());
 				}
 
@@ -237,6 +249,8 @@ class Potato {
 		const page = await this._getPage();
 		if (!page) { return null; }
 
+		await page.waitForSelector('body');
+
 		if (path.startsWith('/')) {
 			path = `${page.url()}${path}`;
 		}
@@ -265,6 +279,24 @@ class Potato {
 
 		this.requestCache[path] = [contentBytes, contentType];
 		return { buffer: contentBytes, contentType };
+	}
+
+	async runWebAction(action: WebAction) {
+		const page = await this._getPage();
+		if (!page) { return false; }
+
+		try {
+			const query = buildQueryFromElementData(action.element);
+			await page.waitForSelector(query);
+			const element = await page.$(query);
+			if (!element) { throw new Error('Element not found'); }
+			await element.click();
+		} catch (error) {
+			logger.error('Failed to run web action', error);
+			return false;
+		}
+
+		return true;
 	}
 
 

@@ -70,6 +70,23 @@ module.exports = (env, argv) => ({
 		removeEmptyChunks: false,
 		splitChunks: false,
 	},
+	devServer: {
+		port: 5000,
+		host: '0.0.0.0',
+		historyApiFallback: true,
+		hot: true,
+		proxy: [
+			{
+				context: ['/socket.io'],
+				target: 'http://localhost:8080',
+				ws: true,
+			},
+			{
+				context: ['!**/potato/**'],
+				target: 'http://localhost:8080',
+			},
+		],
+	},
 	plugins: [
 		new HtmlWebpackPlugin({
 			template: './frontend/public/index.html',

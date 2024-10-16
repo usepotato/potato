@@ -27,10 +27,6 @@ const BrowserContainer = styled(Box)`
 	display: flex;
 	flex-direction: column;
 	border: 1px solid #e4e4e4;
-	// margin: 8px;
-	// margin-bottom: 0px;
-	// border-bottom-left-radius: 0px;
-	// border-bottom-right-radius: 0px;
 `;
 
 const BrowserNavBar = styled(Box)`
@@ -40,7 +36,7 @@ const BrowserNavBar = styled(Box)`
 	padding: 8px;
 	// background-color: #fafafa;
 	border-bottom: 1px solid #e4e4e4;
-	height: 58px;
+	height: 48px;
 	align-items: center;
 `;
 
@@ -63,9 +59,7 @@ const BrowserContent = styled(Box)`
 
 const PageContentContainer = styled(Box)`
 	display: flex;
-	gap: 8px;
 	height: 100%;
-	padding: 8px;
 `;
 
 // position={'absolute'} top={0} left={0} width={'100%'} height={'100%'} display={'flex'} justifyContent={'center'} alignItems={'center'}
@@ -82,26 +76,6 @@ const LoadingOverlay = styled(Box)<{ loading: boolean }>`
 	backdrop-filter: ${({ loading }) => loading ? 'blur(4px)' : 'blur(0px)'};
 	pointer-events: none;
 	transition: background-color 0.20s ease-in-out, backdrop-filter 0.20s ease-in-out;
-`;
-
-const ActionsHud = styled(Box)`
-	position: absolute;
-	top: .5rem;
-	right: .5rem;
-	width: 100%;
-	display: flex;
-	justify-content: flex-end;
-	pointer-events: none;
-	& > div {
-		border: 1px solid #e4e4e4;
-		background-color: rgba(220, 220, 220, 0.70);
-		backdrop-filter: blur(4px);
-		border-radius: 5px;
-		padding: 0.5rem 1rem;
-		&:hover {
-			opacity: 0.25;
-		}
-	}
 `;
 
 const Iframe = styled('iframe')`
@@ -206,7 +180,7 @@ const App: React.FC = () => {
 		const setup = async () => {
 			const _socket = io('/', {
 				query: {
-					browserSessionId: 'test123',
+					inspector: true,
 				},
 				transports: ['websocket'],
 				reconnection: true,
@@ -217,6 +191,12 @@ const App: React.FC = () => {
 
 			setSocket(_socket);
 
+			setInterval(() => {
+				const start_t = Date.now();
+				_socket.emit('ping', start_t);
+			}, 1000);
+
+
 			_socket.on('pong', (start_t) => {
 				const latency = Date.now() - start_t;
 				setPing(latency);
@@ -224,8 +204,8 @@ const App: React.FC = () => {
 
 			_socket.on('connect', () => {
 				console.log('Connected to server');
-				_socket.emit('browser-update', { type: 'resize', data: { width: iframeRef.current.offsetWidth, height: iframeRef.current.offsetHeight } });
-				_socket.emit('browser-update', { type: 'scroll', data: { x: iframeRef.current.scrollLeft, y: iframeRef.current.scrollTop } });
+				_socket.emit('browser-update', { type: 'resize', data: { width: iframeRef.current?.offsetWidth || 0, height: iframeRef.current?.offsetHeight || 0 } });
+				_socket.emit('browser-update', { type: 'scroll', data: { x: iframeRef.current?.scrollLeft || 0, y: iframeRef.current?.scrollTop || 0	 } });
 				setConnected(true);
 			});
 			_socket.on('disconnect', () => {
@@ -247,7 +227,7 @@ const App: React.FC = () => {
 				}
 				if (type === 'page2') {
 					console.log('----PAGE2 UPDATE---', data);
-					if (iframeRef.current) {
+					if (iframeRef.current?.contentWindow) {
 						setUrl(data.url);
 						urlRef.current = data.url;
 						iframeRef.current.contentWindow.document.open();
@@ -286,17 +266,22 @@ const App: React.FC = () => {
 					console.warn('ignoring mutation for wrong url', data);
 					return;
 				}
-				let element = iframeRef.current?.contentDocument?.querySelector(`[shinpads-id="${data.shinpadsId}"]`);
+				if (!iframeRef.current?.contentDocument) {
+					console.warn('no iframe content document', data);
+					return;
+				}
+
+				let element = iframeRef.current.contentDocument.querySelector(`[shinpads-id="${data.shinpadsId}"]`);
 				if (data.shinpadsId === 0) {
-					element = iframeRef.current?.contentDocument?.body.parentElement;
+					element = iframeRef.current.contentDocument.body.parentElement;
 				}
 				if (!element) {
-					console.error('element not found', data, iframeRef.current?.contentDocument?.body.cloneNode(true));
+					console.error('element not found', data, iframeRef.current.contentDocument.body.cloneNode(true));
 					return;
 				}
 				if (data.type === 'childList') {
-					const nextSibling = data.nextSibling ? iframeRef.current?.contentDocument?.querySelector(`[shinpads-id="${data.nextSibling}"]`) : null;
-					const previousSibling = data.previousSibling ? iframeRef.current?.contentDocument?.querySelector(`[shinpads-id="${data.previousSibling}"]`) : null;
+					const nextSibling = data.nextSibling ? iframeRef.current.contentDocument.querySelector(`[shinpads-id="${data.nextSibling}"]`) : null;
+					const previousSibling = data.previousSibling ? iframeRef.current.contentDocument.querySelector(`[shinpads-id="${data.previousSibling}"]`) : null;
 					data.addedNodes?.forEach((node) => {
 						if (!node.shinpadsId && node.text) {
 							element.textContent = node.text;
@@ -307,8 +292,9 @@ const App: React.FC = () => {
 							}
 
 							if (!node) return;
+							if (!iframeRef.current?.contentDocument) return;
 
-							const nodeElement = addNodeFromJson(element, node.node, iframeRef.current?.contentDocument);
+							const nodeElement = addNodeFromJson(element, node.node, iframeRef.current.contentDocument);
 							if (!nodeElement) {
 								console.error('nodeElement not found', data);
 								return;
@@ -340,11 +326,18 @@ const App: React.FC = () => {
 						element.setAttribute(data.attributeName, data.value);
 					}
 				} else if (data.type === 'add-style') {
-					console.log('add-style', element);
 					const sheet = (element as HTMLStyleElement).sheet;
+					if (!sheet) {
+						console.warn('no sheet', element);
+						return;
+					}
 					sheet.insertRule(data.rule, sheet.cssRules.length);
 				} else if (data.type === 'remove-style') {
 					const sheet = (element as HTMLStyleElement).sheet;
+					if (!sheet) {
+						console.warn('no sheet', element);
+						return;
+					}
 					sheet.deleteRule(data.index);
 				}
 			};
@@ -368,35 +361,116 @@ const App: React.FC = () => {
 		if (!parsedUrl.startsWith('http')) {
 			parsedUrl = 'https://' + parsedUrl;
 		}
-		socket.emit('browser-update', { type: 'navigate', data: parsedUrl });
+		socket?.emit('browser-update', { type: 'navigate', data: parsedUrl });
 	};
 
 	const onGoBack = () => {
-		socket.emit('browser-update', { type: 'go-back' });
+		socket?.emit('browser-update', { type: 'go-back' });
 	};
 
 	const onGoForward = () => {
-		socket.emit('browser-update', { type: 'go-forward' });
+		socket?.emit('browser-update', { type: 'go-forward' });
 	};
 
 	const onReload = () => {
-		socket.emit('browser-update', { type: 'reload' });
+		socket?.emit('browser-update', { type: 'reload' });
 	};
 
 	const onBrowserUpdate = (update: any) => {
-		socket.emit('browser-update', update);
+		socket?.emit('browser-update', update);
 	};
 
+	const onIFrameClick = (event: MouseEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+		console.log('onIFrameClick', event);
+		const clickedElement = event.target as HTMLElement;
+		onBrowserUpdate({ type: 'click', data: { x: event.clientX, y: event.clientY, shinpadsId: clickedElement?.getAttribute('shinpads-id') } });
+	};
+
+	const onDocLoaded = () => {
+		if (!iframeRef.current?.contentWindow) {
+			return;
+		}
+
+		const nDoc = iframeRef.current.contentWindow.document;
+
+		console.log('iframe loaded!!!!!');
+		iframeRef.current.contentWindow.focus();
+
+		iframeRef.current.contentWindow.addEventListener('blur', () => {
+			console.log('iframe blur');
+			// onBlur();
+		});
+
+		// appendIFrameStyle(nDoc);
+		// TODO: For click and mousemove, can just get the element that is clicked/hovered to save a lot of network usage!
+		nDoc.removeEventListener('click', onIFrameClick);
+		nDoc.addEventListener('click', onIFrameClick);
+
+		nDoc.addEventListener('mousemove', (event) => {
+			onBrowserUpdate({ type: 'mousemove', data: { x: event.clientX, y: event.clientY } });
+			const elements = nDoc.elementsFromPoint(event.clientX, event.clientY);
+
+			const originalElement = elements.find(el => !el.classList.contains('shinpads-overlay'));
+
+			let element = originalElement;
+			while (originalElement && element && element.parentElement && originalElement.getBoundingClientRect().width >= element.parentElement.getBoundingClientRect().width && originalElement.getBoundingClientRect().height >= element.parentElement.getBoundingClientRect().height) {
+				element = element.parentElement;
+			}
+		});
+
+		nDoc.addEventListener('keydown', (event) => {
+			onBrowserUpdate({ type: 'keydown', data: { key: event.key } });
+		});
+
+		nDoc.addEventListener('scroll', () => {
+			onBrowserUpdate({ type: 'scroll', data: { x: iframeRef?.current?.contentWindow?.scrollX, y: iframeRef?.current?.contentWindow?.scrollY } });
+		});
+
+		nDoc.addEventListener('input', (event: InputEvent) => {
+			onBrowserUpdate({
+				type: 'input',
+				data: {
+					value: (event.target as HTMLInputElement).value,
+					shinpadsId: (event.target as HTMLInputElement).getAttribute('shinpads-id')
+				}
+			});
+		});
+	};
+
+	useEffect(() => {
+		if (!iframeRef.current || !socket) return;
+
+		const resizeObserver = new ResizeObserver(() => {
+			if (iframeRef.current) {
+				const { offsetWidth, offsetHeight } = iframeRef.current;
+				onBrowserUpdate({ type: 'resize', data: { width: offsetWidth, height: offsetHeight } });
+			}
+		});
+		resizeObserver.observe(iframeRef.current);
+
+		onBrowserUpdate({ type: 'resize', data: { width: iframeRef.current.offsetWidth, height: iframeRef.current.offsetHeight } });
+		onBrowserUpdate({ type: 'scroll', data: { x: iframeRef.current.scrollLeft, y: iframeRef.current.scrollTop } });
+
+		if (iframeRef.current.getAttribute('data-shinpads-iframe')) {
+			return;
+		}
+
+		iframeRef.current.setAttribute('data-shinpads-iframe', 'true');
+		iframeRef.current.removeEventListener('load', onDocLoaded);
+		iframeRef.current.addEventListener('load', onDocLoaded);
+
+		return () => {
+			resizeObserver.disconnect();
+		};
+	}, [socket]);
 
 	return (
 		<PageContainer>
 			<PageContentContainer>
-				{/* <ShinpadsBuilder /> */}
 				<BrowserContainer boxShadow='md'>
 					<BrowserNavBar>
-						{/* <Box display='flex' marginRight={1} marginLeft={0.5} alignItems='center'>
-							<LogoIcon style={{ borderRadius: '4px' }} width={28} height={28} />
-						</Box> */}
 						<NavButtons>
 							<IconButton onClick={onGoBack}>
 								<ArrowBackIcon width={16} height={16} fill='currentColor' />

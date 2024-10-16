@@ -32,9 +32,9 @@ app.use(cors({
 	credentials: true,
 }));
 
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use('/potato', express.static(path.join(__dirname, 'dist/potato')));
 
-app.get('/', (req, res) => {
+app.get('/potato', (req, res) => {
 	res.sendFile(path.resolve(__dirname, 'dist/potato/index.html'));
 });
 
@@ -44,6 +44,14 @@ app.get('/health', (req, res) => {
 
 app.get('/bs/:id/*', async (req, res) => {
 	const { id } = req.params;
+	// @ts-ignore
+	const path = req.params[0] as string;
+	const { buffer, contentType } = await app.locals.potato.getStaticResource(path);
+	res.set('Content-Type', contentType);
+	res.send(buffer);
+});
+
+app.get('/*', async (req, res) => {
 	// @ts-ignore
 	const path = req.params[0] as string;
 	const { buffer, contentType } = await app.locals.potato.getStaticResource(path);

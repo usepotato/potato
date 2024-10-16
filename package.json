@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "DEBUG=potato:* bun --watch index.ts",
-    "client": "rm -rf dist && webpack --config ./webpack.config.cjs --mode production",
+    "client": "webpack serve --config ./webpack.config.cjs --mode development --hot",
+    "build-client": "rm -rf dist && webpack --config ./webpack.config.cjs --mode production",
     "lint": "eslint ."
   },
   "devDependencies": {
@@ -16,6 +17,7 @@
     "@types/express": "^5.0.0",
     "@types/react": "^18.3.11",
     "@types/uuid": "^10.0.0",
+    "ajv": "^8.17.1",
     "copy-webpack-plugin": "^12.0.2",
     "css-loader": "^7.1.2",
     "eslint": "^9.12.0",
@@ -26,7 +28,8 @@
     "ts-loader": "^9.5.1",
     "typescript": "5.5.2",
     "typescript-eslint": "^8.9.0",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.1.0"
   },
   "peerDependencies": {},
   "dependencies": {

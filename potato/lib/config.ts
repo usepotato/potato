@@ -37,5 +37,7 @@ const ProdConfig: ConfigType = {
 
 const Config = process.env.NODE_ENV === 'production' ? ProdConfig : DevConfig;
 
+console.log(Config);
+
 export default Config;
 

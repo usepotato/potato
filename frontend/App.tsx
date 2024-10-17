@@ -1,11 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, IconButton, Input, Typography } from '@mui/joy';
+import { Box, IconButton, Input, ListItemButton, ListItem, List, Modal, ModalDialog, Typography, ListItemContent } from '@mui/joy';
 import { io, Socket } from 'socket.io-client';
 import styled from '@emotion/styled';
 import { ReactComponent as ArrowBackIcon } from '@public/icons/arrow-back.svg';
 import { ReactComponent as ReloadIcon } from '@public/icons/reload.svg';
 import { ReactComponent as LogoIcon } from '@public/icon.svg';
-import { appendIFrameStyle } from './util';
+import { ReactComponent as MouseClickIcon } from '@/public/icons/mouse-click.svg';
+import { ReactComponent as CubeIcon } from '@/public/icons/cube.svg';
+import { ReactComponent as CursorTypingIcon } from '@/public/icons/cursor-typing.svg';
+import { ReactComponent as ImageIcon } from '@/public/icons/image.svg';
+import { ReactComponent as TextIcon } from '@/public/icons/text.svg';
+import { ReactComponent as FullArrowUpIcon } from '@/public/icons/full-arrow-up.svg';
+import { appendIFrameStyle, buildLowestListParent, ElementData, getElementData, getElementsFromData } from './util';
 
 const PageContainer = styled(Box)`
 	height: 100vh;
@@ -87,6 +93,11 @@ const Iframe = styled('iframe')`
 		background-color: #fff;
 `;
 
+export const SELECT_MODE = {
+	UNIQUE: 'unique',
+	ALL: 'all',
+};
+
 interface NodeJson {
 	tagName: string;
 	isText: boolean;
@@ -110,6 +121,7 @@ const addNodeFromJson = (containerElement: Element, nj: NodeJson, contentDocumen
 		element = contentDocument?.createElement(nj.tagName);
 	}
 
+
 	Object.entries(nj.attributes || {}).forEach(([key, value]) => {
 		element.setAttribute(key, value);
 	});
@@ -119,6 +131,7 @@ const addNodeFromJson = (containerElement: Element, nj: NodeJson, contentDocumen
 	nj.children?.forEach((child) => {
 		addNodeFromJson(element, child, contentDocument);
 	});
+
 
 	if (element.parentElement === containerElement) {
 		containerElement.querySelectorAll('svg').forEach((svg) => {
@@ -144,6 +157,66 @@ const App: React.FC = () => {
 	const [shiftPressed, setShiftPressed] = useState(false);
 	const [metaPressed, setMetaPressed] = useState(false);
 
+	const [activeAction, setActiveAction] = useState<any | null>(null);
+	const [currentElement, setCurrentElement] = useState<HTMLElement | null>(null);
+	const currentElementRef = useRef<HTMLElement | null>(null);
+	const [hoveredElement, setHoveredElement] = useState<HTMLElement | null>(null);
+	const [isCreatingAction, setIsCreatingAction] = useState(false);
+	const [activeElements, setActiveElements] = useState<HTMLElement[]>([]);
+	const [activeListElement, setActiveListElement] = useState<HTMLElement | null>(null);
+	const [nonListContextElement, setNonListContextElement] = useState<HTMLElement | null | undefined>(null);
+	const [listElement, setListElement] = useState<HTMLElement | null>(null);
+	const [allListElements, setAllListElements] = useState<ElementData[]>([]);
+	const [listItemElement, setListItemElement] = useState<HTMLElement | null>(null);
+	const [currentList, setCurrentList] = useState<HTMLElement[]>([]);
+	const [currentListStack, setCurrentListStack] = useState<ElementData[]>([]);
+	const [doc, setDoc] = useState<Document | null>(null);
+	const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+	const [selectMode, setSelectMode] = useState<string | null>(null);
+
+
+	const [mouseWithinIframe, setMouseWithinIframe] = useState(true);
+
+	const selectModeRef = useRef(false);
+
+	useEffect(() => {
+		selectModeRef.current = Boolean(selectMode) || (activeAction && activeAction.type === 'extract' && activeAction.parameter.type === 'object');
+	}, [selectMode, activeAction]);
+
+	useEffect(() => {
+		currentElementRef.current = currentElement;
+	}, [currentElement]);
+
+
+	function clearHighlights(...classNames: string[]) {
+		for (const className of classNames) {
+			doc?.querySelectorAll(`.${className}`).forEach(element => {
+				element.remove();
+			});
+		}
+	}
+
+	function createHighlight(element: HTMLElement, className: string = 'shinpads-highlight', ...classes: string[]) {
+		if (!doc) return;
+		const highlight = doc.createElement('div');
+		highlight.classList.add(className);
+		highlight.classList.add('shinpads-overlay');
+		classes.forEach(c => highlight.classList.add(c));
+		doc.body.appendChild(highlight);
+
+		const rect = element.getBoundingClientRect();
+		const scrollX = doc.documentElement.scrollLeft;
+		const scrollY = doc.documentElement.scrollTop;
+		highlight.style.left = `${rect.left + scrollX - 2}px`;
+		highlight.style.top = `${rect.top + scrollY - 2}px`;
+		highlight.style.width = `${rect.width + 4}px`;
+		highlight.style.height = `${rect.height + 4}px`;
+
+		highlight.style.borderRadius = element.style.borderRadius || '4px';
+
+		return highlight;
+	}
+
 	useEffect(() => {
 		urlRef.current = url;
 	}, [url]);
@@ -152,31 +225,16 @@ const App: React.FC = () => {
 		backlogRef.current = mutationBacklog;
 	}, [mutationBacklog]);
 
-
-	const handleKeyDown = (e: KeyboardEvent) => {
-		if (e.key === 'Meta') {
-			setMetaPressed(true);
-		} else if (e.key === 'Shift') {
-			setShiftPressed(true);
-		}
-	};
-	const handleKeyUp = (e: KeyboardEvent) => {
-		if (e.key === 'Meta') {
-			setMetaPressed(false);
-		} else if (e.key === 'Shift') {
-			setShiftPressed(false);
-		}
-	};
-
 	useEffect(() => {
-		// if cmd button is pressed
-		document.addEventListener('keydown', handleKeyDown);
-		document.addEventListener('keyup', handleKeyUp);
-		return () => {
-			document.removeEventListener('keydown', handleKeyDown);
-			document.removeEventListener('keyup', handleKeyUp);
-		};
-	}, [setMetaPressed, setShiftPressed]);
+		if (shiftPressed && metaPressed) {
+			setSelectMode(SELECT_MODE.ALL);
+		} else if (metaPressed) {
+			setSelectMode(SELECT_MODE.UNIQUE);
+		} else {
+			setSelectMode(null);
+		}
+	}, [shiftPressed, metaPressed, setSelectMode]);
+
 
 	useEffect(() => {
 		const setup = async () => {
@@ -387,7 +445,14 @@ const App: React.FC = () => {
 		event.stopPropagation();
 		console.log('onIFrameClick', event);
 		const clickedElement = event.target as HTMLElement;
-		onBrowserUpdate({ type: 'click', data: { x: event.clientX, y: event.clientY, shinpadsId: clickedElement?.getAttribute('shinpads-id') } });
+
+		if (selectModeRef.current && currentElementRef.current) {
+			console.log('selectMode', currentElementRef.current);
+			setIsCreatingAction(true);
+		} else {
+			onBrowserUpdate({ type: 'click', data: { x: event.clientX, y: event.clientY, shinpadsId: clickedElement?.getAttribute('shinpads-id') } });
+		}
+
 	};
 
 	const onDocLoaded = () => {
@@ -397,13 +462,9 @@ const App: React.FC = () => {
 
 		const nDoc = iframeRef.current.contentWindow.document;
 
-		console.log('iframe loaded!!!!!');
-		iframeRef.current.contentWindow.focus();
+		setDoc(nDoc);
 
-		iframeRef.current.contentWindow.addEventListener('blur', () => {
-			console.log('iframe blur');
-			// onBlur();
-		});
+		iframeRef.current.contentWindow.focus();
 
 		appendIFrameStyle(nDoc);
 		// maybe TODO: For click and mousemove, can just get the element that is clicked/hovered to save a lot of network usage!
@@ -420,10 +481,25 @@ const App: React.FC = () => {
 			while (originalElement && element && element.parentElement && originalElement.getBoundingClientRect().width >= element.parentElement.getBoundingClientRect().width && originalElement.getBoundingClientRect().height >= element.parentElement.getBoundingClientRect().height) {
 				element = element.parentElement;
 			}
+
+			setHoveredElement(element as HTMLElement);
 		});
 
 		nDoc.addEventListener('keydown', (event) => {
 			onBrowserUpdate({ type: 'keydown', data: { key: event.key } });
+			if (event.key === 'Meta') {
+				setMetaPressed(true);
+			} else if (event.key === 'Shift') {
+				setShiftPressed(true);
+			}
+		});
+
+		nDoc.addEventListener('keyup', (event) => {
+			if (event.key === 'Meta') {
+				setMetaPressed(false);
+			} else if (event.key === 'Shift') {
+				setShiftPressed(false);
+			}
 		});
 
 		nDoc.addEventListener('scroll', () => {
@@ -468,8 +544,249 @@ const App: React.FC = () => {
 		};
 	}, [socket]);
 
+
+	useEffect(() => {
+		clearHighlights('shinpads-highlight.active', 'shinpads-highlight.active-secondary', 'shinpads-highlight.active-container');
+		if (activeAction && doc) {
+			const elements = getElementsFromData(doc, activeAction.element);
+			console.log(elements);
+
+			// TODO: apply filters
+
+			if (activeAction.type === 'extract' && activeAction.parameter.type === 'object') {
+				setActiveElements(elements);
+
+				let newActiveListElement = null;
+				if (elements.length > 0) {
+					newActiveListElement = elements[0]?.parentElement;
+					// get the lowest parent that contains all the elements
+					while (elements.some(el => !newActiveListElement.contains(el))) {
+						newActiveListElement = newActiveListElement?.parentElement;
+					}
+				}
+				setActiveListElement(newActiveListElement);
+
+				(activeAction.subActions || activeAction.subData)?.forEach(subAction => {
+					const subListItems = getElementsFromData(doc, subAction.element);
+					elements.forEach(el => {
+						const elSubElements = subListItems.filter(el2 => el.contains(el2));
+						// subAction.filters?.forEach(filter => {
+						// 	elSubElements = getFilteredListItems(elSubElements, filter);
+						// });
+						elSubElements.forEach(el2 => {
+							createHighlight(el2, 'shinpads-highlight', 'active-secondary');
+						});
+					});
+				});
+
+				elements.forEach(element => {
+					createHighlight(element, 'shinpads-highlight', 'active-container');
+				});
+			} else {
+				elements.forEach(element => {
+					createHighlight(element, 'shinpads-highlight', 'active');
+				});
+			}
+		}
+	}, [activeAction, activeAction?.subActions, windowSize]);
+
+	useEffect(() => {
+		if (!hoveredElement || !doc) return;
+
+		// if (activeElements.length > 0) {
+		// 	// activeElements means we're inspecting an object
+		// 	// TODO:
+		// 	// if (!activeListElement.contains(GLOBAL.currentElement)) {
+		// 	// 	clearHighlights();
+		// 	// 	return;
+		// 	// }
+
+		// 	clearHighlights('shinpads-highlight');
+
+		// 	console.log('activeListElement', activeListElement);
+
+		// 	createHighlight(hoveredElement, 'shinpads-highlight');
+
+		// 	// const { stack } = buildListParent(currentElement, activeListElement);
+		// 	// const { items: listItems, stack: listStack } = getMatchingListItemsFromStack(activeListElement, stack);
+
+		// 	// setListElement(activeListElement);
+		// 	// setListItemElement(listItems[0]);
+		// 	// setCurrentList(listItems);
+		// 	// console.log('currentList', currentList);
+
+		// 	// for (const el of listItems) {
+		// 	// 	createHighlight(el, 'shinpads-highlight');
+		// 	// }
+		// } else {
+		iframeRef?.current?.contentWindow?.focus();
+		const elementData = getElementData(hoveredElement);
+		const listItems = getElementsFromData(doc, elementData);
+		const { listElement, allListElements, nonListContextElement } = buildLowestListParent(doc, hoveredElement);
+		if (activeElements.length > 0) {
+			// check that hovered element is inside an active list element
+			if (!activeListElement?.contains(hoveredElement)) {
+				setCurrentElement(null);
+				setCurrentList([]);
+				return;
+			}
+		}
+		setCurrentElement(hoveredElement);
+		setNonListContextElement(nonListContextElement);
+		setListElement(listElement);
+		setListItemElement(listItems[0]);
+		setCurrentList(listItems);
+		setCurrentListStack([]);
+		setAllListElements(allListElements as ElementData[]);
+		// }
+	}, [hoveredElement]);
+
+	// HIGHLIGHTS
+	useEffect(() => {
+		clearHighlights('shinpads-current-element', 'shinpads-highlight.secondary');
+		if (!currentElement) return;
+		if (!isCreatingAction && (!selectMode || !mouseWithinIframe) && !activeListElement) return;
+
+
+		createHighlight(currentElement, 'shinpads-highlight', 'shinpads-current-element');
+
+		currentList.forEach(element => {
+			if (element === currentElement) return;
+			createHighlight(element, 'shinpads-highlight', 'secondary');
+		});
+
+	}, [currentElement, currentList, selectMode, mouseWithinIframe, isCreatingAction, windowSize]);
+
+	const onCreateAction = (actionData) => {
+		if (!currentElement) return;
+
+		const action: any = {
+			id: `action_${actionData.type}_${Date.now()}`,
+			element: getElementData(currentElement),
+			filters: [],
+		};
+
+		if (actionData.type === 'action') {
+			action.type = 'action';
+			action.parameter = {
+				type: actionData.actionType,
+				isArray: selectMode === SELECT_MODE.ALL,
+				name: '',
+			};
+			action.subActions = [];
+		} else if (actionData.type === 'extract') {
+			action.type = 'extract';
+			action.parameter = {
+				type: actionData.paramType,
+				isArray: selectMode === SELECT_MODE.ALL,
+				name: '',
+			};
+			action.subActions = [];
+		}
+		// window.dispatchEvent(new CustomEvent(Events.ON_CREATE_ACTION, { detail: action }));
+		setIsCreatingAction(false);
+	};
+
+	const selectParent = () => {
+		if (!currentElement || currentElement.tagName === 'BODY') {
+			return;
+		}
+		setHoveredElement(currentElement?.parentElement);
+	};
+
 	return (
 		<PageContainer>
+			<Modal
+				open={isCreatingAction}
+				onClose={() => {
+					setIsCreatingAction(false);
+				}}
+				sx={{
+					'& .MuiModal-backdrop': {
+						backdropFilter: 'blur(0px)',
+					},
+				}}
+			>
+				<ModalDialog
+					sx={{
+						p: 1,
+						backgroundColor: 'rgba(250, 250, 250, 0.75)',
+						backdropFilter: 'blur(6px)',
+						boxShadow: '0 1px inset var(--joy-palette-third-shadowHighColor)',
+					}}
+				>
+					<List sx={{ p: 0 }}>
+						{currentElement?.tagName !== 'BODY' && (
+							<ListItem>
+								<ListItemButton onClick={() => selectParent()}>
+									<Box display='flex' alignItems='center' justifyContent='center'>
+										<FullArrowUpIcon fill='currentColor' width={16} height={16} />
+									</Box>
+									<ListItemContent>
+										<Typography level='title-sm'>Select Parent</Typography>
+										<Typography textColor='neutral.500' level='body-xs'>Select the parent of the element</Typography>
+									</ListItemContent>
+								</ListItemButton>
+							</ListItem>
+						)}
+						<ListItem>
+							<ListItemButton onClick={() => onCreateAction({ type: 'action', actionType: 'click' })}>
+								<Box display='flex' alignItems='center' justifyContent='center'>
+									<MouseClickIcon fill='currentColor' width={16} height={16} />
+								</Box>
+								<ListItemContent>
+									<Typography level='title-sm'>Click</Typography>
+									<Typography textColor='neutral.500' level='body-xs'>Click on the element</Typography>
+								</ListItemContent>
+							</ListItemButton>
+						</ListItem>
+						<ListItem>
+							<ListItemButton onClick={() => onCreateAction({ type: 'action', actionType: 'input' })}>
+								<Box display='flex' alignItems='center' justifyContent='center'>
+									<CursorTypingIcon fill='currentColor' width={16} height={16} />
+								</Box>
+								<ListItemContent>
+									<Typography level='title-sm'>Input</Typography>
+									<Typography textColor='neutral.500' level='body-xs'>Input on the element</Typography>
+								</ListItemContent>
+							</ListItemButton>
+						</ListItem>
+						<ListItem>
+							<ListItemButton onClick={() => onCreateAction({ type: 'extract', paramType: 'object' })}>
+								<Box display='flex' alignItems='center' justifyContent='center'>
+									<CubeIcon fill='currentColor' width={16} height={16} />
+								</Box>
+								<ListItemContent>
+									<Typography level='title-sm'>Extract Object</Typography>
+									<Typography textColor='neutral.500' level='body-xs'>Extract object from the element</Typography>
+								</ListItemContent>
+							</ListItemButton>
+						</ListItem>
+						<ListItem>
+							<ListItemButton onClick={() => onCreateAction({ type: 'extract', paramType: 'text' })}>
+								<Box display='flex' alignItems='center' justifyContent='center'>
+									<TextIcon fill='currentColor' width={16} height={16} />
+								</Box>
+								<ListItemContent>
+									<Typography level='title-sm'>Extract Text</Typography>
+									<Typography textColor='neutral.500' level='body-xs'>Extract text from the element</Typography>
+								</ListItemContent>
+							</ListItemButton>
+						</ListItem>
+						<ListItem>
+							<ListItemButton onClick={() => onCreateAction({ type: 'extract', paramType: 'image' })}>
+								<Box display='flex' alignItems='center' justifyContent='center'>
+									<ImageIcon fill='currentColor' width={16} height={16} />
+								</Box>
+								<ListItemContent>
+									<Typography level='title-sm'>Extract Image</Typography>
+									<Typography textColor='neutral.500' level='body-xs'>Extract image from the element</Typography>
+								</ListItemContent>
+							</ListItemButton>
+						</ListItem>
+					</List>
+				</ModalDialog>
+			</Modal>
 			<PageContentContainer>
 				<BrowserContainer boxShadow='md'>
 					<BrowserNavBar>

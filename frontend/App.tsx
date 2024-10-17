@@ -462,6 +462,15 @@ const App: React.FC = () => {
 
 		const nDoc = iframeRef.current.contentWindow.document;
 
+		iframeRef.current.contentWindow.addEventListener('blur', () => {
+			setSelectMode(null);
+		});
+
+		nDoc.addEventListener('mouseenter', () => {
+			iframeRef?.current?.contentWindow?.focus();
+		});
+
+
 		setDoc(nDoc);
 
 		iframeRef.current.contentWindow.focus();

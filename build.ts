@@ -5,7 +5,7 @@ await Bun.build({
 	sourcemap: 'external',
 	splitting: true,
 	format: 'esm',
-	footer: 'Built with ❤️ in SF'
+	footer: '// Built with ❤️ in SF'
 });
 
 import { promises as fs } from 'fs';

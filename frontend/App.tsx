@@ -683,7 +683,7 @@ const App: React.FC = () => {
 			};
 			action.subActions = [];
 		}
-		window.parent.dispatchEvent(new CustomEvent(Events.ON_CREATE_ACTION, { detail: action }));
+		window.parent.postMessage({ type: Events.ON_CREATE_ACTION, action }, '*');
 		setIsCreatingAction(false);
 	};
 

@@ -1,6 +1,5 @@
 // import 'core-js/stable';
 import React from 'react';
-import './public/index.css';
 import { createRoot } from 'react-dom/client';
 // import { joyTheme, muiTheme } from '@/src/styles/theme';
 import { CssVarsProvider as JoyCssVarsProvider } from '@mui/joy/styles';

@@ -30,7 +30,7 @@ const DevConfig: ConfigType = {
 };
 
 const ProdConfig: ConfigType = {
-	PORT: Number(process.env.PORT) || 25565,
+	PORT: secrets.PORT || 80,
 	REDIS_URL: secrets.REDIS_URL,
 };
 

@@ -34,6 +34,7 @@
   },
   "peerDependencies": {},
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.670.0",
     "@emotion/styled": "^11.13.0",
     "@mui/joy": "^5.0.0-beta.48",
     "axios": "^1.7.7",

@@ -2,16 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Box, IconButton, Input, ListItemButton, ListItem, List, Modal, ModalDialog, Typography, ListItemContent } from '@mui/joy';
 import { io, Socket } from 'socket.io-client';
 import styled from '@emotion/styled';
-import { ReactComponent as ArrowBackIcon } from '@public/icons/arrow-back.svg';
-import { ReactComponent as ReloadIcon } from '@public/icons/reload.svg';
-import { ReactComponent as LogoIcon } from '@public/icon.svg';
-import { ReactComponent as MouseClickIcon } from '@/public/icons/mouse-click.svg';
-import { ReactComponent as CubeIcon } from '@/public/icons/cube.svg';
-import { ReactComponent as CursorTypingIcon } from '@/public/icons/cursor-typing.svg';
-import { ReactComponent as ImageIcon } from '@/public/icons/image.svg';
-import { ReactComponent as TextIcon } from '@/public/icons/text.svg';
-import { ReactComponent as FullArrowUpIcon } from '@/public/icons/full-arrow-up.svg';
-import { appendIFrameStyle, buildLowestListParent, ElementData, getElementData, getElementsFromData } from './util';
+import ArrowBackIcon from 'icons/ArrowBackIcon';
+import ReloadIcon from 'icons/ReloadIcon';
+import LogoIcon from 'icons/LogoIcon';
+import MouseClickIcon from 'icons/MouseClickIcon';
+import CubeIcon from 'icons/CubeIcon';
+import CursorTypingIcon from 'icons/CursorTypingIcon';
+import ImageIcon from 'icons/ImageIcon';
+import TextIcon from 'icons/TextIcon';
+import FullArrowUpIcon from 'icons/FullArrowUpIcon';
+import { appendIFrameStyle, buildLowestListParent, ElementData, Events, getElementData, getElementsFromData } from './util';
 
 const PageContainer = styled(Box)`
 	height: 100vh;
@@ -683,7 +683,7 @@ const App: React.FC = () => {
 			};
 			action.subActions = [];
 		}
-		// window.dispatchEvent(new CustomEvent(Events.ON_CREATE_ACTION, { detail: action }));
+		window.parent.dispatchEvent(new CustomEvent(Events.ON_CREATE_ACTION, { detail: action }));
 		setIsCreatingAction(false);
 	};
 

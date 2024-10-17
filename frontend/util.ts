@@ -7,6 +7,12 @@ export interface ElementData {
   parent: ElementData | null;
 }
 
+export const Events = {
+	ON_ELEMENT_SELECTED: 'ON_ELEMENT_SELECTED',
+	ON_CREATE_ACTION: 'ON_CREATE_ACTION',
+	SUB_ACTION_ADDED: 'SUB_ACTION_ADDED',
+};
+
 
 export interface ElementData {
   id: string;

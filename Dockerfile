@@ -1,4 +1,5 @@
-FROM oven/bun:1 AS base
+FROM oven/bun:1.1.30 AS base
+
 WORKDIR /app
 RUN bun install proxy-from-env
 

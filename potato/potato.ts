@@ -18,6 +18,7 @@ interface BrowserUpdate {
 interface WebAction {
 	id: string;
 	type: string;
+	url?: string;
 	parameter: Record<string, string>;
 	element: Record<string, string>;
 	subActions: WebAction[];
@@ -335,7 +336,10 @@ class Potato {
 			}, action);
 
 			console.log('elements', elements);
-			if (action.parameter.type === 'click') {
+
+			if (action.type === 'navigate') {
+				await this.processUpdate({ type: 'navigate', data: action.url });
+			} else if (action.parameter.type === 'click') {
 				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0] } });
 			} else if (action.parameter.type === 'input') {
 				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0] } });

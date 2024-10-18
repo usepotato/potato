@@ -36,6 +36,8 @@ class Potato {
 	subscribers: Set<string>;
 	browserWsUrl?: string;
 	proxySocket: WebSocket | null;
+	connected: boolean;
+	isShuttingDown: boolean;
 
 	constructor(io: Server, workerId: string, baseUrl: string) {
 		this.io = io;
@@ -46,6 +48,20 @@ class Potato {
 		this.requestCache = {};
 		this.subscribers = new Set<string>();
 		this.proxySocket = null;
+		this.connected = false;
+		this.isShuttingDown = false;
+
+		this._checkStateLoop();
+	}
+
+	async _checkStateLoop() {
+		// check every 1s
+		setInterval(async () => {
+			if (!this.isShuttingDown && !this.connected) {
+				logger.info('Browser not connected, launching...');
+				await this.launch();
+			}
+		}, 1000);
 	}
 
 	async _setAvailable() {
@@ -76,6 +92,7 @@ class Potato {
 	}
 
 	async close() {
+		this.isShuttingDown = true;
 		await this._setOffline();
 		await this.browser?.disconnect();
 	}
@@ -135,8 +152,13 @@ class Potato {
 				}
 			};
 
-			const onBrowserDisconnected = () => {
+			const onBrowserDisconnected = async () => {
 				console.log('onBrowserDisconnected');
+				this.connected = false;
+				await this._setOffline();
+				this.browser = null;
+				this.sessionId = null;
+				this.io.disconnectSockets();
 			};
 
 			this.browser.on('disconnected', onBrowserDisconnected);
@@ -150,11 +172,12 @@ class Potato {
 			const page = await this.browser.newPage();
 			await page.goto('https://google.com');
 
+			this.connected = true;
 			await this._setAvailable();
 
 			logger.info(`Browser connected on ${this.browserWsUrl}`);
-		} catch (error) {
-			logger.error('Failed to launch browser', error);
+		} catch (_) {
+			logger.error('Failed to launch browser...');
 		}
 	}
 
@@ -250,7 +273,7 @@ class Potato {
 	async removeSubscriber(socketId: string) {
 		this.subscribers.delete(socketId);
 		logger.info(`Removed subscriber ${socketId}, ${this.subscribers.size} subscribers remaining`);
-		if (this.subscribers.size === 0) {
+		if (this.subscribers.size === 0 && this.connected) {
 			await this._setAvailable();
 		}
 	}

@@ -4,8 +4,8 @@ import getLogger from '@lib/logging.js';
 import puppeteer, { Browser, Frame, HTTPResponse, Page, Target, TargetType } from 'puppeteer';
 import browserPageScripts from './browserPageScripts.js';
 import type { Server } from 'socket.io';
-import { buildQueryFromElementData } from 'util.js';
 import WebSocket from 'ws';
+import { injectScript } from '../frontend/util';
 
 const logger = getLogger('potato');
 
@@ -324,14 +324,18 @@ class Potato {
 		}
 
 		try {
-			const query = buildQueryFromElementData(action.element);
-			if (!query) { throw new Error('Element not found'); }
-			logger.info(`Waiting for element ${query}`);
-			// @ts-ignore
-			const element = await page.evaluate((query) => document.querySelector(query), query);
-			logger.info(`Element found ${element}`);
-			if (!element) { throw new Error('Element not found'); }
-			await element.click();
+			const script = injectScript();
+			await page.evaluate(script);
+			const elements = await page.evaluate((action) => {
+				const elements = window.getElementsFromData(document, action.element);
+				return elements.map((el) => el.getAttribute('shinpads-id'));
+			}, action);
+
+			console.log('elements', elements);
+			await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0] } });
+			// wait 200ms
+			await new Promise((resolve) => setTimeout(resolve, 200));
+
 		} catch (error) {
 			logger.error('Failed to run web action', error);
 			return false;

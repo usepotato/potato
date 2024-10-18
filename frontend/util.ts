@@ -1,29 +1,5 @@
-export interface ElementData {
-  id: string;
-  text: string;
-  attributes: Record<string, string>;
-  tagName: string;
-  classList: string[];
-  parent: ElementData | null;
-}
-
-export const Events = {
-	ON_ELEMENT_SELECTED: 'ON_ELEMENT_SELECTED',
-	ON_CREATE_ACTION: 'ON_CREATE_ACTION',
-	SUB_ACTION_ADDED: 'SUB_ACTION_ADDED',
-};
-
-
-export interface ElementData {
-  id: string;
-  text: string;
-  attributes: Record<string, string>;
-  tagName: string;
-  classList: string[];
-  parent: ElementData | null;
-}
-
-export function getElementData(element: HTMLElement, includeText: boolean = true): ElementData {
+// @ts-nocheck
+export function getElementData(element, includeText = true) {
 	const attributes = {};
 	for (const attribute of element.attributes) {
 		attributes[attribute.name] = attribute.value;
@@ -39,7 +15,7 @@ export function getElementData(element: HTMLElement, includeText: boolean = true
 	};
 }
 
-export function getElementsFromData(doc: Document, elementData: ElementData) {
+export function getElementsFromData(doc, elementData) {
 	if (!elementData) return [];
 	// todo: will have to reference the stack in some way
 	const stack = [];
@@ -50,16 +26,16 @@ export function getElementsFromData(doc: Document, elementData: ElementData) {
 	}
 	const query = stack.map((el) => buildElementQuery(el)).join(' > ');
 	const elements = doc.querySelectorAll(query);
-	return Array.from(elements) as HTMLElement[];
+	return Array.from(elements);
 }
 
-function escapeSpecialChars(text: string) {
+export function escapeSpecialChars(text) {
 	// put double backslash infront of : or [ or ] or % or # or / or @ or . or &
 	if (!text) return text;
 	return text.replaceAll(/[:[\]%#/@.&]/g, '\\$&');
 }
 
-function buildElementQuery(element: HTMLElement | ElementData, includeId: boolean = false) {
+export function buildElementQuery(element, includeId = false) {
 	if (['HTML', 'BODY', 'HEAD'].includes(element.tagName)) {
 		return element.tagName;
 	}
@@ -69,7 +45,7 @@ function buildElementQuery(element: HTMLElement | ElementData, includeId: boolea
 	return `${element.tagName}${includeId ? idQuery : ''}${classQuery}`;
 }
 
-export function buildLowestListParent(doc: Document, element: HTMLElement) {
+export function buildLowestListParent(doc, element) {
 	// starting with element parent, go up the dom tree and find the first parent that contains more than 1 child
 	let current = element.parentElement;
 	let prev = element;
@@ -96,7 +72,7 @@ export function buildLowestListParent(doc: Document, element: HTMLElement) {
 	};
 }
 
-export function buildListParent(element: HTMLElement, listParent: HTMLElement) {
+export function buildListParent(element, listParent) {
 	const stack = [];
 	let current = element;
 	while (current && current !== listParent) {
@@ -109,7 +85,7 @@ export function buildListParent(element: HTMLElement, listParent: HTMLElement) {
 	};
 }
 
-export function getMatchingListItemsFromStack(listElement: HTMLElement, stack: ElementData[]) {
+export function getMatchingListItemsFromStack(listElement, stack) {
 	// TODO: ideally it would do some type of search where it starts really strict but if there is no list then it loosens restrictions in the best way to get a list
 	// highlighting specific children in a list item
 	let currentListStack = stack;
@@ -137,86 +113,15 @@ export function getMatchingListItemsFromStack(listElement: HTMLElement, stack: E
 }
 
 
-export function appendIFrameStyle(doc: Document) {
-	const style = doc.createElement('style');
-	style.textContent = `
-    .shinpads-highlight {
-      background: rgba(137, 43, 226, 0.2);
-      border: none;
-      animation: rotate-dashes 5s linear infinite;
-      border-radius: 4px;
-      position: absolute;
-      z-index: 1000000000;
-      background-image:
-        linear-gradient(90deg, rgba(137, 43, 226, 0.85) 50%, transparent 50%),
-        linear-gradient(90deg, rgba(137, 43, 226, 0.85) 50%, transparent 50%),
-        linear-gradient(0deg, rgba(137, 43, 226, 0.85) 50%, transparent 50%),
-        linear-gradient(0deg, rgba(137, 43, 226, 0.85) 50%, transparent 50%);
-      background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-      background-size: 6px 1px, 6px 1px, 1px 6px, 1px 6px;
-      background-position: 0% 0%, 0% 100%, 0% 0%, 100% 0%;
-    }
-
-    .shinpads-highlight.secondary {
-        background: rgba(163, 163, 163, 0.2);
-        border: 1px dashed rgba(121, 121, 121, 0.85);
-    }
-
-    .shinpads-highlight.selected {
-      background: rgba(137, 43, 226, 0.2);
-      border: none;
-      animation: rotate-dashes 5s linear infinite;
-      background-image:
-        linear-gradient(90deg, rgba(137, 43, 226, 0.85) 50%, transparent 50%),
-        linear-gradient(90deg, rgba(137, 43, 226, 0.85) 50%, transparent 50%),
-        linear-gradient(0deg, rgba(137, 43, 226, 0.85) 50%, transparent 50%),
-        linear-gradient(0deg, rgba(137, 43, 226, 0.85) 50%, transparent 50%);
-      background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-      background-size: 6px 1px, 6px 1px, 1px 6px, 1px 6px;
-      background-position: 0% 0%, 0% 100%, 0% 0%, 100% 0%;
-    }
-
-    .shinpads-highlight.active {
-      background: rgba(0, 55, 255, 0.15);
-      border: none;
-      animation: rotate-dashes 5s linear infinite;
-      background-image:
-        linear-gradient(90deg, rgba(0, 55, 255, 0.85) 50%, transparent 50%),
-        linear-gradient(90deg, rgba(0, 55, 255, 0.85) 50%, transparent 50%),
-        linear-gradient(0deg, rgba(0, 55, 255, 0.85) 50%, transparent 50%),
-        linear-gradient(0deg, rgba(0, 55, 255, 0.85) 50%, transparent 50%);
-      background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-      background-size: 6px 2px, 6px 2px, 2px 6px, 2px 6px;
-      background-position: 0% 0%, 0% 100%, 0% 0%, 100% 0%;
-    }
-
-    .shinpads-highlight.active-secondary {
-      background: rgba(0, 55, 255, 0.15);
-      border: 1px dashed rgba(0, 55, 255, 0.85);
-      animation: none;
-      background-image: none;
-    }
-
-    .shinpads-highlight.active-container {
-      background: rgba(0, 55, 255, 0.05);
-      border: none;
-      animation: rotate-dashes 5s linear infinite;
-      background-image:
-        linear-gradient(90deg, rgba(0, 55, 255, 0.85) 50%, transparent 50%),
-        linear-gradient(90deg, rgba(0, 55, 255, 0.85) 50%, transparent 50%),
-        linear-gradient(0deg, rgba(0, 55, 255, 0.85) 50%, transparent 50%),
-        linear-gradient(0deg, rgba(0, 55, 255, 0.85) 50%, transparent 50%);
-      background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-      background-size: 6px 2px, 6px 2px, 2px 6px, 2px 6px;
-      background-position: 0% 0%, 0% 100%, 0% 0%, 100% 0%;
-    }
-
-    @keyframes rotate-dashes {
-      to {
-        background-position: 60px 0%, -60px 100%, 0% -60px, 100% 60px;
-      }
-    }
-
-  `;
-	doc.head.appendChild(style);
+export function injectScript() {
+	return `
+	window.escapeSpecialChars = ${escapeSpecialChars.toString()};
+	window.getMatchingListItemsFromStack = ${getMatchingListItemsFromStack.toString()};
+	window.buildLowestListParent = ${buildLowestListParent.toString()};
+	window.buildListParent = ${buildListParent.toString()};
+	window.getElementsFromData = ${getElementsFromData.toString()};
+	window.getElementData = ${getElementData.toString()};
+	window.buildElementQuery = ${buildElementQuery.toString()};
+	`;
 }
+

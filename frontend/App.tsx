@@ -11,7 +11,8 @@ import CursorTypingIcon from 'icons/CursorTypingIcon';
 import ImageIcon from 'icons/ImageIcon';
 import TextIcon from 'icons/TextIcon';
 import FullArrowUpIcon from 'icons/FullArrowUpIcon';
-import { appendIFrameStyle, buildLowestListParent, ElementData, Events, getElementData, getElementsFromData } from './util';
+import {  buildLowestListParent, getElementData, getElementsFromData } from './util';
+import { Events, appendIFrameStyle, ElementData } from './helper';
 
 const PageContainer = styled(Box)`
 	height: 100vh;
@@ -495,7 +496,9 @@ const App: React.FC = () => {
 		nDoc.addEventListener('click', onIFrameClick);
 
 		nDoc.addEventListener('mousemove', (event) => {
-			onBrowserUpdate({ type: 'mousemove', data: { x: event.clientX, y: event.clientY } });
+			if (!selectModeRef.current) {
+				onBrowserUpdate({ type: 'mousemove', data: { x: event.clientX, y: event.clientY } });
+			}
 			const elements = nDoc.elementsFromPoint(event.clientX, event.clientY);
 
 			const originalElement = elements.find(el => !el.classList.contains('shinpads-overlay'));

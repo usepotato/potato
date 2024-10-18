@@ -414,6 +414,20 @@ const App: React.FC = () => {
 		};
 	}, []);
 
+	useEffect(() => {
+		window.addEventListener('message', (msg: MessageEvent) => {
+			if (msg.origin !== window.location.origin.replace('browser.', '')) {
+				console.warn('ignoring message from wrong origin', msg.origin);
+				return;
+			}
+			const message = JSON.parse(msg.data);
+			console.log('received parent frame message', message);
+			if (message.type === 'activeAction') {
+				setActiveAction(message.data.activeAction);
+			}
+		});
+	}, [setActiveAction]);
+
 
 	const onUrlChange = (e: React.FormEvent<HTMLDivElement>) => {
 		e.preventDefault();
@@ -666,7 +680,7 @@ const App: React.FC = () => {
 
 	}, [currentElement, currentList, selectMode, mouseWithinIframe, isCreatingAction, windowSize]);
 
-	const onCreateAction = (actionData) => {
+	const onCreateAction = (actionData: { type: string, actionType?: string, paramType?: string }) => {
 		if (!currentElement) return;
 
 		const action: any = {

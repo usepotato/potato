@@ -38,6 +38,7 @@ class Potato {
 	proxySocket: WebSocket | null;
 	connected: boolean;
 	isShuttingDown: boolean;
+	hasBeenConnected: boolean;
 
 	constructor(io: Server, workerId: string, baseUrl: string) {
 		this.io = io;
@@ -50,6 +51,7 @@ class Potato {
 		this.proxySocket = null;
 		this.connected = false;
 		this.isShuttingDown = false;
+		this.hasBeenConnected = false;
 
 		this._checkStateLoop();
 	}
@@ -57,7 +59,7 @@ class Potato {
 	async _checkStateLoop() {
 		// check every 1s
 		setInterval(async () => {
-			if (!this.isShuttingDown && !this.connected) {
+			if (!this.isShuttingDown && !this.connected && this.hasBeenConnected) {
 				logger.info('Browser not connected, launching...');
 				await this.launch();
 			}
@@ -143,6 +145,8 @@ class Potato {
 
 							await page.evaluate(`window.browserSessionId = "${this.sessionId}"`);
 							logger.info('Evaluating browserPageScripts', browserPageScripts);
+							const script = injectScript();
+							await page.evaluate(script);
 							await page.evaluate(browserPageScripts);
 						}
 					};
@@ -173,6 +177,7 @@ class Potato {
 			await page.goto('https://google.com');
 
 			this.connected = true;
+			this.hasBeenConnected = true;
 			await this._setAvailable();
 
 			logger.info(`Browser connected on ${this.browserWsUrl}`);
@@ -324,15 +329,18 @@ class Potato {
 		}
 
 		try {
-			const script = injectScript();
-			await page.evaluate(script);
 			const elements = await page.evaluate((action) => {
 				const elements = window.getElementsFromData(document, action.element);
 				return elements.map((el) => el.getAttribute('shinpads-id'));
 			}, action);
 
 			console.log('elements', elements);
-			await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0] } });
+			if (action.parameter.type === 'click') {
+				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0] } });
+			} else if (action.parameter.type === 'input') {
+				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0] } });
+				await page.keyboard.type(action.parameter.name);
+			}
 			// wait 200ms
 			await new Promise((resolve) => setTimeout(resolve, 200));
 

@@ -212,11 +212,12 @@ class Potato {
 			} else if (update.type === 'mousemove') {
 				await page.mouse.move(update.data.x, update.data.y);
 			} else if (update.type === 'input') {
-				await page.evaluate(`
-          const element = document.querySelector('[shinpads-id="${update.data.shinpadsId}"]');
-          element.value = "${update.data.value}";
-          element.dispatchEvent(new Event('input', { bubbles: true }));
-        `);
+				await page.evaluate((shinpadsId, value) => {
+					// @ts-ignore
+					const inputEl = document.querySelector(`[shinpads-id="${shinpadsId}"]`);
+					inputEl.value = value;
+					inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+				}, update.data.shinpadsId, update.data.value);
 			} else if (update.type === 'keydown') {
 				await page.keyboard.press(update.data.key);
 			} else {

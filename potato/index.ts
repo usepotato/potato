@@ -9,9 +9,6 @@ import Potato from './potato';
 import cors from 'cors';
 import path from 'path';
 import WebSocket from 'ws';
-import { Browser, Connection } from 'puppeteer';
-import { URL } from 'url';
-// import { NodeWebSocketTransport } from 'puppeteer-core';
 
 const logger = getLogger('index');
 
@@ -59,18 +56,15 @@ app.get('/potato', (req, res) => {
 	res.sendFile(path.resolve(__dirname, '../dist/potato/index.html'));
 });
 
-app.get('/health', (req, res) => {
-	res.send('OK');
+app.get('/potato/session/:id/status', async (req, res) => {
+	const { id } = req.params;
+	const potato = await app.locals.potato;
+	const active = potato.browser && potato.sessionId === id;
+	res.send({ active });
 });
 
-app.get('/bs/:id/*', async (req, res) => {
-	const { id } = req.params;
-	// @ts-ignore
-	const path = req.params[0] as string;
-	const queryString = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
-	const { buffer, contentType } = await app.locals.potato.getStaticResource(path + queryString);
-	res.set('Content-Type', contentType);
-	res.send(buffer);
+app.get('/health', (req, res) => {
+	res.send('OK');
 });
 
 app.get('/*', async (req, res) => {

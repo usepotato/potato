@@ -855,6 +855,11 @@ const App: React.FC = () => {
 							src={'/'}
 						/>
 						<LoadingOverlay loading={loading} />
+						{!loading && !connected && (
+							<LoadingOverlay loading={!loading && !connected}>
+								<Typography level='title-md'>Disconnected...</Typography>
+							</LoadingOverlay>
+						)}
 					</BrowserContent>
 				</BrowserContainer>
 			</PageContentContainer>

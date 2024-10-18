@@ -280,6 +280,7 @@ class Potato {
 		this.subscribers.delete(socketId);
 		logger.info(`Removed subscriber ${socketId}, ${this.subscribers.size} subscribers remaining`);
 		if (this.subscribers.size === 0 && this.connected) {
+			this.sessionId = null;
 			await this._setAvailable();
 		}
 	}

@@ -139,6 +139,13 @@ export default () => {
 			return originalDeleteRule.call(this, index);
 		};
 
+		window.addEventListener('scroll', () => {
+			window.shinpadsUpdate(JSON.stringify({
+				type: 'scroll',
+				data: { x: window.scrollX, y: window.scrollY },
+			}));
+		});
+
 
 		const targetNode = document.body.parentElement;
 		const config = { attributes: true, childList: true, subtree: true };
@@ -206,25 +213,25 @@ export default () => {
 						} else if (node.nodeType === 3 && node.textContent?.trim().length > 0 && node.parentElement) {
 							if (!addedElements.find(n => n.shinpadsId === node.parentElement.getAttribute('shinpads-id'))) {
 								let text = node?.parentElement?.textContent;
-								if (node.parentElement.tagName === 'STYLE') {
-									const urlMatches = text.match(/url\(([^)]+)\)/g);
-									if (urlMatches) {
-										urlMatches.forEach(match => {
-											let url = match.match(/url\(([^)]+)\)/)[1];
-											url = url.replace(/^['"]|['"]$/g, '');
-											if (url.startsWith('data:')) {
-												return;
-											}
-											if (url.startsWith('//')) {
-												url = 'https:' + url;
-											}
-											if (url.startsWith('/bs/')) {
-												return;
-											}
-											text = text.replace(match, match.replace(url, `/bs/${window.browserSessionId}/${url}`));
-										});
-									}
-								}
+								// if (node.parentElement.tagName === 'STYLE') {
+									// const urlMatches = text.match(/url\(([^)]+)\)/g);
+									// if (urlMatches) {
+									// 	urlMatches.forEach(match => {
+									// 		let url = match.match(/url\(([^)]+)\)/)[1];
+									// 		url = url.replace(/^['"]|['"]$/g, '');
+									// 		if (url.startsWith('data:')) {
+									// 			return;
+									// 		}
+									// 		if (url.startsWith('//')) {
+									// 			url = 'https:' + url;
+									// 		}
+									// 		if (url.startsWith('/bs/')) {
+									// 			return;
+									// 		}
+									// 		text = text.replace(match, match.replace(url, `/${url}`));
+									// 	});
+									// }
+								// }
 
 								addedNodes.push({
 									text

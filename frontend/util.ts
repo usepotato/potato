@@ -9,6 +9,7 @@ export function getElementData(element, includeText = true) {
 		id: element.id,
 		text: includeText ? element.innerText : '',
 		attributes: attributes,
+		shinpadsId: element.getAttribute('shinpads-id'),
 		tagName: element.tagName,
 		classList: Array.from(element.classList),
 		parent: (element.tagName !== 'BODY' && element.parentElement) ? getElementData(element.parentElement, false) : null

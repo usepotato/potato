@@ -67,25 +67,25 @@ class Potato {
 		}, 1000);
 	}
 
-	async _setAvailable() {
+	async #setAvailable() {
 		logger.info(`Setting browser ${this.workerId} as AVAILABLE`);
 		await redis.sadd('browser:available', this.workerId);
 		await redis.set(`browser:${this.workerId}`, JSON.stringify({ baseUrl: this.baseUrl, state: 'available' }));
 	}
 
-	async _setBusy() {
+	async #setBusy() {
 		logger.info(`Setting browser ${this.workerId} as BUSY`);
 		await redis.srem('browser:available', this.workerId);
 		await redis.set(`browser:${this.workerId}`, JSON.stringify({ baseUrl: this.baseUrl, state: 'busy' }));
 	}
 
-	async _setOffline() {
+	async #setOffline() {
 		logger.info(`Setting browser ${this.workerId} as OFFLINE`);
 		await redis.del(`browser:${this.workerId}`);
 		await redis.srem('browser:available', this.workerId);
 	}
 
-	async _getPage(): Promise<Page | null> {
+	async #getPage(): Promise<Page | null> {
 		if (!this.browser) { return null; }
 		const pages = await this.browser.pages();
 		if (pages.length) return pages[0];
@@ -96,7 +96,7 @@ class Potato {
 
 	async close() {
 		this.isShuttingDown = true;
-		await this._setOffline();
+		await this.#setOffline();
 		await this.browser?.disconnect();
 	}
 
@@ -160,7 +160,7 @@ class Potato {
 			const onBrowserDisconnected = async () => {
 				console.log('onBrowserDisconnected');
 				this.connected = false;
-				await this._setOffline();
+				await this.#setOffline();
 				this.browser = null;
 				this.sessionId = null;
 				this.io.disconnectSockets();
@@ -179,7 +179,7 @@ class Potato {
 
 			this.connected = true;
 			this.hasBeenConnected = true;
-			await this._setAvailable();
+			await this.#setAvailable();
 
 			logger.info(`Browser connected on ${this.browserWsUrl}`);
 		} catch (_) {
@@ -193,7 +193,7 @@ class Potato {
 			return { success: false, message: 'Browser not connected' };
 		}
 
-		await this._setBusy();
+		await this.#setBusy();
 		this.sessionId = sessionId;
 		logger.info(`Starting session for browser session ${sessionId}`);
 
@@ -220,7 +220,7 @@ class Potato {
 		}
 
 		try {
-			const page = await this._getPage();
+			const page = await this.#getPage();
 			if (!page) { throw new Error('Failed to get page'); }
 
 			if (update.type === 'resize') {
@@ -258,7 +258,7 @@ class Potato {
 	}
 
 	async sendPageContent() {
-		const page = await this._getPage();
+		const page = await this.#getPage();
 		if (!page) { return; }
 		await page.waitForSelector('body');
 		// @ts-ignore
@@ -281,12 +281,12 @@ class Potato {
 		logger.info(`Removed subscriber ${socketId}, ${this.subscribers.size} subscribers remaining`);
 		if (this.subscribers.size === 0 && this.connected) {
 			this.sessionId = null;
-			await this._setAvailable();
+			await this.#setAvailable();
 		}
 	}
 
 	async getStaticResource(path: string) {
-		const page = await this._getPage();
+		const page = await this.#getPage();
 		if (!page) { return null; }
 
 		await page.waitForSelector('body');
@@ -321,40 +321,85 @@ class Potato {
 		return { buffer: contentBytes, contentType };
 	}
 
+
+	/**
+	 * Runs a web action on the given page.
+	 *
+	 * @param {Page} page - The Puppeteer page object to run the action on.
+	 * @param {WebAction} action - The web action to be executed.
+	 * @param {string} rootElementId - The shinpads-id of the root element to search within
+	 * @returns {any} - The result of the action. Can be boolean for actions, or any type of data for extracting
+	 */
+	async #runAction(page: Page, action: WebAction, rootElementId: string){
+		try {
+			const elements = await page.evaluate((action) => {
+				const elements = window.getElementsFromData(document, action.element);
+				return elements.map((el) => window.getElementData(el));
+			}, action);
+
+			logger.info('Running action', action.parameter.name, rootElementId, elements);
+
+			const getActionElementValue = (element) => {
+				if (action.parameter.type === 'object') {
+					// call for all subactions
+					const res: Record<string, any> = {};
+					for (const subAction of action.subActions) {
+						res[subAction.parameter.name] = this.#runAction(page, subAction, element.attributes['shinpads-id']);
+					}
+					return res;
+				} else if (action.parameter.type === 'text') {
+					return element.text;
+				} else if (action.parameter.type === 'image') {
+					// todo: check recursivley for image, background-image, etc
+					return element.attributes['src'];
+				}
+				return null;
+			};
+
+			if (action.type === 'navigate') {
+				await this.processUpdate({ type: 'navigate', data: action.url });
+			}  else if (action.type === 'action') {
+				if (action.parameter.type === 'click') {
+					await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
+				} else if (action.parameter.type === 'input') {
+					await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
+					await page.keyboard.type(action.parameter.name);
+				}
+			} else if (action.type === 'extract') {
+				// find element, recursivley run action
+				if (action.parameter.isArray) {
+					return elements.map((el) => getActionElementValue(el));
+				} else {
+					return getActionElementValue(element);
+				}
+			}
+
+			// wait 200ms
+			await new Promise((resolve) => setTimeout(resolve, 200));
+
+			return true;
+
+		} catch (error) {
+			logger.error('Failed to run web action', error);
+			return false;
+		}
+	}
+
 	async runWebAction(browserSessionId: string, action: WebAction) {
-		const page = await this._getPage();
+		const page = await this.#getPage();
 		if (!page) { return false; }
 
 		if (browserSessionId !== this.sessionId) {
 			logger.error('Browser session id does not match');
 			return false;
 		}
-
-		try {
-			const elements = await page.evaluate((action) => {
-				const elements = window.getElementsFromData(document, action.element);
-				return elements.map((el) => el.getAttribute('shinpads-id'));
-			}, action);
-
-			console.log('elements', elements);
-
-			if (action.type === 'navigate') {
-				await this.processUpdate({ type: 'navigate', data: action.url });
-			} else if (action.parameter.type === 'click') {
-				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0] } });
-			} else if (action.parameter.type === 'input') {
-				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0] } });
-				await page.keyboard.type(action.parameter.name);
-			}
-			// wait 200ms
-			await new Promise((resolve) => setTimeout(resolve, 200));
-
-		} catch (error) {
-			logger.error('Failed to run web action', error);
-			return false;
-		}
-
-		return true;
+		// find body's shinpads id
+		const rootElement = await page.evaluate(() => {
+			const body = document.querySelector('body');
+			return body?.getAttribute('shinpads-id');
+		});
+		const response = await this.#runAction(page, action, rootElement);
+		return response;
 	}
 
 

@@ -91,7 +91,7 @@ app.post('/run-web-action', async (req, res) => {
 
 	const response = await app.locals.potato.runWebAction(browserSessionId, action);
 
-	res.send(response);
+	res.send({ data: response });
 });
 
 

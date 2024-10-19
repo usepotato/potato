@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, IconButton, Input, ListItemButton, ListItem, List, Modal, ModalDialog, Typography, ListItemContent } from '@mui/joy';
+import { Box, IconButton, Input, ListItemButton, ListItem, List, Modal, ModalDialog, Typography, ListItemContent, Button } from '@mui/joy';
 import { io, Socket } from 'socket.io-client';
 import styled from '@emotion/styled';
 import ArrowBackIcon from 'icons/ArrowBackIcon';
@@ -13,6 +13,7 @@ import TextIcon from 'icons/TextIcon';
 import FullArrowUpIcon from 'icons/FullArrowUpIcon';
 import {  buildLowestListParent, getElementData, getElementsFromData } from './util';
 import { Events, appendIFrameStyle, ElementData } from './helper';
+import DisconnectedIcon from 'icons/DisconnectedIcon';
 
 const PageContainer = styled(Box)`
 	height: 100vh;
@@ -79,11 +80,13 @@ const LoadingOverlay = styled(Box)<{ loading: boolean }>`
 	width: 100%;
 	height: 100%;
 	display: flex;
+	flex-direction: column;
+	gap: 8px;
 	justify-content: center;
 	align-items: center;
 	background-color: ${({ loading }) => loading ? 'rgba(243, 244, 255, 0.25)' : 'rgb(243 244 255 / 0%);'};
 	backdrop-filter: ${({ loading }) => loading ? 'blur(4px)' : 'blur(0px)'};
-	pointer-events: none;
+	pointer-events: ${({ loading }) => loading ? 'auto' : 'none'};
 	transition: background-color 0.20s ease-in-out, backdrop-filter 0.20s ease-in-out;
 `;
 
@@ -860,7 +863,8 @@ const App: React.FC = () => {
 						<LoadingOverlay loading={loading} />
 						{!loading && !connected && (
 							<LoadingOverlay loading={!loading && !connected}>
-								<Typography level='title-md'>Disconnected...</Typography>
+								<DisconnectedIcon width={48} height={48} />
+								<Typography level='h4'>Disconnected!</Typography>
 							</LoadingOverlay>
 						)}
 					</BrowserContent>

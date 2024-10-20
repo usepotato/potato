@@ -299,6 +299,13 @@ const App: React.FC = () => {
 						});
 					}
 				}
+				if (type === 'action-start' || type === 'action-end') {
+					console.log('----ACTION UPDATE---', payload);
+					window.parent.postMessage({
+						type,
+						data: payload.data,
+					}, '*');
+				}
 				if (type === 'page2') {
 					console.log('----PAGE2 UPDATE---', data);
 					if (iframeRef.current?.contentWindow) {

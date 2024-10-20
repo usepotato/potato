@@ -339,7 +339,7 @@ class Potato {
 	 * @param {string} rootElementId - The shinpads-id of the root element to search within
 	 * @returns {any} - The result of the action. Can be boolean for actions, or any type of data for extracting
 	 */
-	async #runAction(page: Page, action: WebAction, rootElementId: string){
+	async #runAction(page: Page, action: WebAction, rootElementId: string) {
 		try {
 			logger.info('Running action', action.parameter?.name, action.type, action.parameter?.type, rootElementId);
 
@@ -358,9 +358,6 @@ class Potato {
 				logger.warn('No elements found for action', action.parameter?.name, action.type, action.parameter?.type, rootElementId);
 				return false;
 			}
-
-			logger.info('Found elements', elements);
-
 
 			const getActionElementValue = async (element) => {
 				if (action.parameter.type === 'object') {
@@ -422,7 +419,9 @@ class Potato {
 			const body = document.querySelector('body');
 			return body?.getAttribute('shinpads-id');
 		});
+		await this.publishUpdate({ type: 'action-start', data: { actionId: action.id } });
 		const response = await this.#runAction(page, action, rootElement);
+		await this.publishUpdate({ type: 'action-end', data: { actionId: action.id, response } });
 		return response;
 	}
 

@@ -5,7 +5,7 @@ import puppeteer, { Browser, Frame, HTTPResponse, Page, Target, TargetType } fro
 import browserPageScripts from './browserPageScripts.js';
 import type { Server } from 'socket.io';
 import WebSocket from 'ws';
-import { injectScript } from '../frontend/util';
+import { injectScript } from './util';
 
 const logger = getLogger('potato');
 

@@ -87,8 +87,6 @@ app.post('/start-session', async (req, res) => {
 
 app.post('/run-web-action', async (req, res) => {
 	const { browserSessionId, action } = req.body;
-	logger.log(`Running web action for browser session ${browserSessionId}`);
-
 	const response = await app.locals.potato.runWebAction(browserSessionId, action);
 
 	res.send({ data: response });

@@ -332,19 +332,33 @@ class Potato {
 	 */
 	async #runAction(page: Page, action: WebAction, rootElementId: string){
 		try {
-			const elements = await page.evaluate((action) => {
-				const elements = window.getElementsFromData(document, action.element);
+			logger.info('Running action', action.parameter?.name, action.type, action.parameter?.type, rootElementId);
+
+			if (action.type === 'navigate') {
+				await this.processUpdate({ type: 'navigate', data: action.url });
+				return true;
+			}
+
+			const elements = await page.evaluate((action, rootElementId) => {
+				const parentElement = document.querySelector(`[shinpads-id="${rootElementId}"]`);
+				const elements = window.getElementsFromData(parentElement, action.element);
 				return elements.map((el) => window.getElementData(el));
-			}, action);
+			}, action, rootElementId);
 
-			logger.info('Running action', action.parameter.name, rootElementId, elements);
+			if (!elements.length) {
+				logger.warn('No elements found for action', action.parameter?.name, action.type, action.parameter?.type, rootElementId);
+				return false;
+			}
 
-			const getActionElementValue = (element) => {
+			logger.info('Found elements', elements);
+
+
+			const getActionElementValue = async (element) => {
 				if (action.parameter.type === 'object') {
 					// call for all subactions
 					const res: Record<string, any> = {};
 					for (const subAction of action.subActions) {
-						res[subAction.parameter.name] = this.#runAction(page, subAction, element.attributes['shinpads-id']);
+						res[subAction.parameter.name] = await this.#runAction(page, subAction, element.attributes['shinpads-id']);
 					}
 					return res;
 				} else if (action.parameter.type === 'text') {
@@ -356,9 +370,7 @@ class Potato {
 				return null;
 			};
 
-			if (action.type === 'navigate') {
-				await this.processUpdate({ type: 'navigate', data: action.url });
-			}  else if (action.type === 'action') {
+			 if (action.type === 'action') {
 				if (action.parameter.type === 'click') {
 					await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
 				} else if (action.parameter.type === 'input') {
@@ -368,15 +380,15 @@ class Potato {
 			} else if (action.type === 'extract') {
 				// find element, recursivley run action
 				if (action.parameter.isArray) {
-					return elements.map((el) => getActionElementValue(el));
+					return await Promise.all(elements.map((el) => getActionElementValue(el)));
 				} else {
-					return getActionElementValue(element);
+					return await getActionElementValue(elements[0]);
 				}
 			}
 
 			// wait 200ms
 			await new Promise((resolve) => setTimeout(resolve, 200));
-
+			await page.waitForNetworkIdle();
 			return true;
 
 		} catch (error) {
@@ -389,10 +401,13 @@ class Potato {
 		const page = await this.#getPage();
 		if (!page) { return false; }
 
+
 		if (browserSessionId !== this.sessionId) {
 			logger.error('Browser session id does not match');
 			return false;
 		}
+		await page.waitForNetworkIdle();
+
 		// find body's shinpads id
 		const rootElement = await page.evaluate(() => {
 			const body = document.querySelector('body');

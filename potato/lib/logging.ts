@@ -7,7 +7,9 @@ const getLogger = (namespace: string) => {
 		// eslint-disable-next-line
 		log: (...args: any[]) => debug('potato:' + namespace + ':log')(...(args as [string, ...any[]])),
 		// eslint-disable-next-line
-		info: (...args: any[]) => debug('potato:' + namespace + ':log')(...(args as [string, ...any[]])),
+		info: (...args: any[]) => debug('potato:' + namespace + ':info')(...(args as [string, ...any[]])),
+		// eslint-disable-next-line
+		warn: (...args: any[]) => debug('potato:' + namespace + ':warn')(...(args as [string, ...any[]])),
 		// eslint-disable-next-line
 		error: (...args: any[]) => debug('potato:' + namespace + ':error')(...(args as [string, ...any[]])),
 	};

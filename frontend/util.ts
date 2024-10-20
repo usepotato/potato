@@ -16,17 +16,17 @@ export function getElementData(element, includeText = true) {
 	};
 }
 
-export function getElementsFromData(doc, elementData) {
+export function getElementsFromData(parentEl, elementData) {
 	if (!elementData) return [];
 	// todo: will have to reference the stack in some way
 	const stack = [];
 	let current = elementData;
-	while (current) {
+	while (current && current.shinpadsId !== parentEl.getAttribute('shinpads-id')) {
 		stack.unshift(current);
 		current = current.parent;
 	}
 	const query = stack.map((el) => buildElementQuery(el)).join(' > ');
-	const elements = doc.querySelectorAll(query);
+	const elements = parentEl.querySelectorAll(query);
 	return Array.from(elements);
 }
 

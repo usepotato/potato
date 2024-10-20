@@ -577,7 +577,7 @@ const App: React.FC = () => {
 	useEffect(() => {
 		clearHighlights('shinpads-highlight.active', 'shinpads-highlight.active-secondary', 'shinpads-highlight.active-container');
 		if (activeAction && doc) {
-			const elements = getElementsFromData(doc, activeAction.element);
+			const elements = getElementsFromData(doc.body, activeAction.element);
 			console.log(elements);
 
 			// TODO: apply filters
@@ -596,7 +596,7 @@ const App: React.FC = () => {
 				setActiveListElement(newActiveListElement);
 
 				(activeAction.subActions || activeAction.subData)?.forEach(subAction => {
-					const subListItems = getElementsFromData(doc, subAction.element);
+					const subListItems = getElementsFromData(doc.body, subAction.element);
 					elements.forEach(el => {
 						const elSubElements = subListItems.filter(el2 => el.contains(el2));
 						// subAction.filters?.forEach(filter => {
@@ -650,7 +650,7 @@ const App: React.FC = () => {
 		// } else {
 		iframeRef?.current?.contentWindow?.focus();
 		const elementData = getElementData(hoveredElement);
-		const listItems = getElementsFromData(doc, elementData);
+		const listItems = getElementsFromData(doc.body, elementData);
 		const { listElement, allListElements, nonListContextElement } = buildLowestListParent(doc, hoveredElement);
 		if (activeElements.length > 0) {
 			// check that hovered element is inside an active list element
@@ -864,7 +864,7 @@ const App: React.FC = () => {
 						{!loading && !connected && (
 							<LoadingOverlay loading={!loading && !connected}>
 								<DisconnectedIcon width={48} height={48} />
-								<Typography level='h4'>Disconnected!</Typography>
+								<Typography level='title-lg'>Disconnected!</Typography>
 							</LoadingOverlay>
 						)}
 					</BrowserContent>

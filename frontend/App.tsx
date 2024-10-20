@@ -11,7 +11,7 @@ import CursorTypingIcon from 'icons/CursorTypingIcon';
 import ImageIcon from 'icons/ImageIcon';
 import TextIcon from 'icons/TextIcon';
 import FullArrowUpIcon from 'icons/FullArrowUpIcon';
-import {  buildLowestListParent, getElementData, getElementsFromData } from '../potato/util';
+import {  buildLowestListParent, getBase64FromUrl, getElementData, getElementsFromData } from '../potato/util';
 import { Events, appendIFrameStyle, ElementData } from './helper';
 import DisconnectedIcon from 'icons/DisconnectedIcon';
 
@@ -223,6 +223,16 @@ const App: React.FC = () => {
 
 	useEffect(() => {
 		urlRef.current = url;
+		const sendUpdate = async () => {
+			window.parent.postMessage({
+				type: Events.ON_FRAME_NAVIGATED,
+				data: {
+					url,
+					favIconUrl: await getBase64FromUrl('/favicon.ico'),
+				},
+			}, '*');
+		};
+		sendUpdate();
 	}, [url]);
 
 	useEffect(() => {
@@ -712,7 +722,7 @@ const App: React.FC = () => {
 			};
 			action.subActions = [];
 		}
-		window.parent.postMessage({ type: Events.ON_CREATE_ACTION, action }, '*');
+		window.parent.postMessage({ type: Events.ON_CREATE_ACTION, data: { action } }, '*');
 		setIsCreatingAction(false);
 	};
 

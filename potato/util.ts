@@ -113,6 +113,23 @@ export function getMatchingListItemsFromStack(listElement, stack) {
 	};
 }
 
+export async function getBase64FromUrl(url) {
+	try {
+		const data = await fetch(url);
+		const blob = await data.blob();
+
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.readAsDataURL(blob);
+			reader.onloadend = () => resolve(reader.result);
+			reader.onerror = (err) => reject(err);
+		});
+	} catch (e) {
+		console.warn('error getting base64 from url', e);
+		return null;
+	}
+};
+
 
 export function injectScript() {
 	return `

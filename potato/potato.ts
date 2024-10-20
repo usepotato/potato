@@ -26,6 +26,7 @@ interface WebAction {
 	filters: Record<string, string>[];
 }
 
+const DISCONNECT_TIMEOUT = 1000 * 30; // 30 seconds
 
 class Potato {
 	workerId: string;
@@ -40,6 +41,7 @@ class Potato {
 	connected: boolean;
 	isShuttingDown: boolean;
 	hasBeenConnected: boolean;
+	lastConnectedAt: number | null;
 
 	constructor(io: Server, workerId: string, baseUrl: string) {
 		this.io = io;
@@ -53,6 +55,7 @@ class Potato {
 		this.connected = false;
 		this.isShuttingDown = false;
 		this.hasBeenConnected = false;
+		this.lastConnectedAt = null;
 
 		this._checkStateLoop();
 	}
@@ -63,6 +66,10 @@ class Potato {
 			if (!this.isShuttingDown && !this.connected && this.hasBeenConnected) {
 				logger.info('Browser not connected, launching...');
 				await this.launch();
+			} else if (this.sessionId && !this.subscribers.size && this.lastConnectedAt && Date.now() - this.lastConnectedAt > DISCONNECT_TIMEOUT) {
+				logger.info('No subscribers after 30 seconds, ending session');
+				this.sessionId = null;
+				await this.#setAvailable();
 			}
 		}, 1000);
 	}
@@ -273,11 +280,13 @@ class Potato {
 
 	async addSubscriber(socketId: string) {
 		this.subscribers.add(socketId);
+		this.lastConnectedAt = Date.now();
 		await this.sendPageContent();
 	}
 
 	async removeSubscriber(socketId: string) {
 		this.subscribers.delete(socketId);
+		this.lastConnectedAt = Date.now();
 		logger.info(`Removed subscriber ${socketId}, ${this.subscribers.size} subscribers remaining`);
 		if (this.subscribers.size === 0 && this.connected) {
 			this.sessionId = null;

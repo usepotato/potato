@@ -31,9 +31,9 @@ export function getElementsFromData(parentEl, elementData) {
 }
 
 export function escapeSpecialChars(text) {
-	// put double backslash infront of : or [ or ] or % or # or / or @ or . or &
+	// put double backslash infront of : or [ or ] or % or # or / or @ or . or & or = or + or ,
 	if (!text) return text;
-	return text.replaceAll(/[:[\]%#/@.&]/g, '\\$&');
+	return text.replaceAll(/[:[\]%#/@.&=+,-]/g, '\\$&');
 }
 
 export function buildElementQuery(element, includeId = false) {
@@ -196,7 +196,7 @@ function isElementVisible(element) {
 
 function isClickable(element) {
 	const computedStyle = getComputedStyle(element);
-	if (computedStyle.cursor === 'pointer') {
+	if (computedStyle.cursor === 'pointer' || computedStyle.cursor === 'text') {
 		return true;
 	}
 
@@ -253,12 +253,14 @@ function getBoxAnnotations(element, parent, mustBeClickable=true) {
 				type: 'clickable',
 				rect,
 				id: element.getAttribute('shinpads-id'),
+				tagName: element.tagName,
 			};
 		} else if (!mustBeClickable) {
 			annotation = {
 				type: 'box',
 				rect,
 				id: element.getAttribute('shinpads-id'),
+				tagName: element.tagName,
 			};
 		}
 	}

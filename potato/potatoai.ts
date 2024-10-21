@@ -15,7 +15,7 @@ class PotatoAI {
 		const boxAnnotations = await page.evaluate(() => window.getBoxAnnotations(document.body, null));
 		const annotations = boxAnnotations.subAnnotations;
 
-		// await screenShotWithAnnotations(page, annotations);
+		await screenShotWithAnnotations(page, annotations);
 
 		const options = await buildActOptions(page, annotations);
 		logger.info('options', options);
@@ -95,13 +95,17 @@ async function buildActOptions(page: Page, annotations: any) {
 					content: [
 						{
 							type: 'text',
-							text: 'Here is a component on a webpage. Please describe it as simply as possible while still being descriptive.',
+							text: 'Here is a component on a webpage. Please describe it as simply as possible while still being descriptive. For example: "A yellow button with text "Submit" and a star icon on the right side."',
 						},
 						{
 							type: 'image_url',
 							image_url: {
 								url: screenshot,
 							},
+						},
+						{
+							type: 'text',
+							text: `The component is a ${annotation.tagName} element.`,
 						},
 					],
 				},
@@ -110,8 +114,12 @@ async function buildActOptions(page: Page, annotations: any) {
 
 		const description = response.choices[0].message.content;
 
-		return { id: index, shinpadsId: annotation.annotation.id, description };
+		return { id: index, shinpadsId: annotation.annotation.id, description, screenshot };
 	}));
+
+	// save screenshots to file for debugging
+	fs.writeFileSync('tmp/annotations.md', '# Annotations\n\n' + options.map(option => `![${option.description}](${option.screenshot})\n<br/>${option.description}\n`).join('\n'));
+
 	return options;
 }
 
@@ -120,7 +128,15 @@ async function screenShotAnnotation(page: Page, annotation: any) {
 	// crop just the annotation
 	const { x, y, width, height } = annotation.annotation.rect;
 	let sharpImage = sharp(screenshot);
-	sharpImage = sharpImage.extract({ left: Math.floor(x), top: Math.floor(y), width: Math.ceil(width), height: Math.ceil(height) });
+	const metadata = await sharpImage.metadata();
+	if (!metadata.width || !metadata.height) {
+		throw new Error('No metadata');
+	}
+	const left = Math.max(Math.floor(x) - 2, 0);
+	const top = Math.max(Math.floor(y) - 2, 0);
+	const extractWidth = Math.min(Math.ceil(width) + 4, metadata.width - left);
+	const extractHeight = Math.min(Math.ceil(height) + 4, metadata.height - top);
+	sharpImage = sharpImage.extract({ left, top, width: extractWidth, height: extractHeight });
 	// return base64 encoded url
 	// like data:image/png;base64
 	return sharpImage.toBuffer().then(buffer => `data:image/png;base64,${buffer.toString('base64')}`);
@@ -151,7 +167,7 @@ async function screenShotWithAnnotations(page: Page, annotations: any) {
 	image = image.composite([{ input: overlay, blend: 'over' }]);
 
 	const annotatedScreenshot = await image.png().toBuffer();
-	fs.writeFileSync('annotatedBoxAnnotations.png', annotatedScreenshot);
+	fs.writeFileSync('tmp/annotatedBoxAnnotations.png', annotatedScreenshot);
 }
 
 export default PotatoAI;

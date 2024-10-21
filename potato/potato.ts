@@ -352,7 +352,8 @@ class Potato {
 			if (action.parameter.type === 'act') {
 				const shinpadsId = await PotatoAI.act(page, action.parameter.name);
 				if (shinpadsId) {
-					return await this.processUpdate({ type: 'click', data: { shinpadsId } });
+					await this.processUpdate({ type: 'click', data: { shinpadsId } });
+					return true;
 				}
 				return false;
 			} else if (action.parameter.type === 'extract') {

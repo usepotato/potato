@@ -43,9 +43,11 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "ioredis": "^5.4.1",
+    "openai": "^4.68.1",
     "puppeteer": "^23.5.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sharp": "^0.33.5",
     "socket.io": "4.7.2",
     "socket.io-client": "4.7.2",
     "uuid": "^10.0.0"

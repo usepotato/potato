@@ -22,22 +22,34 @@ const secrets = JSON.parse(response.SecretString || '{}');
 interface ConfigType {
 	PORT: number;
 	REDIS_URL: string;
+	OPENAI_API_KEY: string;
 }
 
-const DevConfig: ConfigType = {
-	PORT: Number(process.env.PORT) || 25565,
-	REDIS_URL: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
-};
+function getConfig(): ConfigType {
+	let config;
+	if (process.env.NODE_ENV === 'production') {
+		config = {
+			PORT: secrets.PORT || 80,
+			REDIS_URL: secrets.REDIS_URL,
+			OPENAI_API_KEY: secrets.OPENAI_API_KEY,
+		};
+	} else {
+		config = {
+			PORT: Number(process.env.PORT) || 25565,
+			REDIS_URL: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+			OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+		};
+	}
 
-const ProdConfig: ConfigType = {
-	PORT: secrets.PORT || 80,
-	REDIS_URL: secrets.REDIS_URL,
-};
+	if (!config.OPENAI_API_KEY) {
+		throw new Error('OPENAI_API_KEY is not set');
+	}
+
+	return config as ConfigType;
+}
 
 
-const Config = process.env.NODE_ENV === 'production' ? ProdConfig : DevConfig;
-
-console.log(Config);
+const Config = getConfig();
 
 export default Config;
 

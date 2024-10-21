@@ -6,6 +6,7 @@ import browserPageScripts from './browserPageScripts.js';
 import type { Server } from 'socket.io';
 import WebSocket from 'ws';
 import { injectScript } from './util';
+import PotatoAI from 'potatoai.js';
 
 const logger = getLogger('potato');
 
@@ -341,10 +342,21 @@ class Potato {
 	 */
 	async #runAction(page: Page, action: WebAction, rootElementId: string) {
 		try {
-			logger.info('Running action', action.parameter?.name, action.type, action.parameter?.type, rootElementId);
+			logger.info('RUNNING ACTION', action.id, action.type, JSON.stringify(action.parameter));
 
 			if (action.type === 'navigate') {
 				await this.processUpdate({ type: 'navigate', data: action.url });
+				return true;
+			}
+
+			if (action.parameter.type === 'act') {
+				const shinpadsId = await PotatoAI.act(page, action.parameter.name);
+				if (shinpadsId) {
+					return await this.processUpdate({ type: 'click', data: { shinpadsId } });
+				}
+				return false;
+			} else if (action.parameter.type === 'extract') {
+				// extract data from elements
 				return true;
 			}
 
@@ -376,14 +388,12 @@ class Potato {
 				return null;
 			};
 
-			 if (action.type === 'action') {
-				if (action.parameter.type === 'click') {
-					await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
-				} else if (action.parameter.type === 'input') {
-					await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
-					await page.keyboard.type(action.parameter.name);
-				}
-			} else if (action.type === 'extract') {
+			if (action.parameter.type === 'click') {
+				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
+			} else if (action.parameter.type === 'input') {
+				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
+				await page.keyboard.type(action.parameter.name);
+			} else {
 				// find element, recursivley run action
 				if (action.parameter.isArray) {
 					return await Promise.all(elements.map((el) => getActionElementValue(el)));
@@ -392,9 +402,6 @@ class Potato {
 				}
 			}
 
-			// wait 200ms
-			await new Promise((resolve) => setTimeout(resolve, 200));
-			await page.waitForNetworkIdle();
 			return true;
 
 		} catch (error) {
@@ -402,17 +409,27 @@ class Potato {
 			return false;
 		}
 	}
-
 	async runWebAction(browserSessionId: string, action: WebAction) {
+		logger.info('___RUNNING WEB ACTION', action.parameter?.name || '', action.type, action.parameter?.type || '', browserSessionId);
 		const page = await this.#getPage();
-		if (!page) { return false; }
-
+		if (!page) {
+			logger.error('No page found running action', action.id);
+			return false;
+		}
 
 		if (browserSessionId !== this.sessionId) {
 			logger.error('Browser session id does not match');
 			return false;
 		}
-		await page.waitForNetworkIdle();
+
+		logger.info('Waiting for network idle');
+		try {
+			await page.waitForNetworkIdle({ timeout: 1000 * 5 });
+		} catch (_) {
+			logger.warn('Waiting 5s for network idle timed out');
+		}
+
+		logger.info('Waiting for body');
 
 		// find body's shinpads id
 		const rootElement = await page.evaluate(() => {

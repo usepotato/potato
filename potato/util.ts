@@ -130,6 +130,182 @@ export async function getBase64FromUrl(url) {
 	}
 };
 
+// script to get box outlines for all visible dom elements
+// if parent is simply a container, then use the width and height of the parent for the child and combine them.
+// if the element is clickable, then don't recurse into it. anymore.
+function isElementVisible(element) {
+	if (!(element instanceof Element)) {
+		throw new Error('Element expected');
+	}
+
+	const style = getComputedStyle(element);
+
+	if (style.display === 'contents') {
+		return true; // maybe change? idk this is probably right
+	}
+
+	// Check for display, visibility, and opacity
+	if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+		return false;
+	}
+
+	const rect = element.getBoundingClientRect();
+	// add translate to the rect
+	const transform = style.transform;
+	if (transform.includes('translate')) {
+		return true;
+	}
+
+	// Check if the element is in the viewport
+	if (
+		rect.width === 0 ||
+    rect.height === 0 ||
+    ( rect.top < 0 && rect.bottom < 0 ) ||
+    ( rect.top > window.innerHeight && rect.bottom > window.innerHeight ) ||
+    ( rect.left < 0 && rect.right < 0 ) ||
+    ( rect.left > window.innerWidth && rect.right > window.innerWidth )
+	) {
+		return false;
+	}
+
+	// Check if any of the ancestors hide the element with overflow
+	let currentElement = element;
+
+	while (currentElement) {
+		const currentStyle = getComputedStyle(currentElement);
+
+		if (currentStyle.overflow === 'hidden' || currentStyle.overflow === 'auto' || currentStyle.overflow === 'scroll') {
+			const parentRect = currentElement.getBoundingClientRect();
+
+			if (
+				rect.bottom < parentRect.top ||
+        rect.top > parentRect.bottom ||
+        rect.right < parentRect.left ||
+        rect.left > parentRect.right
+			) {
+				return false;
+			}
+		}
+
+		currentElement = currentElement.parentElement;
+	}
+
+	return true;
+}
+
+
+function isClickable(element) {
+	const computedStyle = getComputedStyle(element);
+	if (computedStyle.cursor === 'pointer') {
+		return true;
+	}
+
+	// Check if the element is a button or a link
+	if (element.tagName === 'BUTTON' || element.tagName === 'A') {
+		return true;
+	}
+
+	// Check if any class applied to the element sets cursor: pointer
+	const elementClasses = element.classList;
+	for (let i = 0; i < elementClasses.length; i++) {
+		const className = elementClasses[i];
+		// Create a dummy element to check the style of the class
+		const dummyElement = document.createElement('div');
+		dummyElement.className = className;
+		document.body.appendChild(dummyElement);
+		if (getComputedStyle(dummyElement).cursor === 'pointer') {
+			document.body.removeChild(dummyElement);
+			return true;
+		}
+		document.body.removeChild(dummyElement);
+	}
+
+	return false;
+}
+
+function getBoxAnnotations(element, parent, mustBeClickable=true) {
+	if (!isElementVisible(element) || element.tagName === 'svg') {
+		return {
+			annotation: null,
+			subAnnotations: [],
+			numChildren: 0,
+			numClickableChildren: 0,
+		};
+	}
+
+	let rect = element.getBoundingClientRect();
+	let annotation = null;
+	const subAnnotations = [];
+	const clickable = isClickable(element);
+
+	if (rect.width > 3 && rect.height > 3 && (element.children.length > 1 || element.shadowRoow?.children?.length > 1 || clickable)) {
+		// bind rect to screen view dimensions
+		rect = {
+			y: Math.max(rect.top, 0),
+			x: Math.max(rect.left, 0),
+			width: Math.min(rect.width, window.innerWidth - rect.left),
+			height: Math.min(rect.height, window.innerHeight - rect.top),
+		};
+
+
+		if (clickable) {
+			annotation = {
+				type: 'clickable',
+				rect,
+				id: element.getAttribute('shinpads-id'),
+			};
+		} else if (!mustBeClickable) {
+			annotation = {
+				type: 'box',
+				rect,
+				id: element.getAttribute('shinpads-id'),
+			};
+		}
+	}
+
+
+	if (element.shadowRoot) {
+		for (let i = 0; i < element.shadowRoot.children.length; i++) {
+			const child = element.shadowRoot.children[i];
+			const subAnnotation = getBoxAnnotations(child, element, mustBeClickable || clickable);
+			if (!subAnnotation.annotation) {
+				subAnnotations.push(...subAnnotation.subAnnotations);
+			} else {
+				subAnnotations.push(subAnnotation);
+			}
+		}
+	}
+
+	for (let i = 0; i < element.children.length; i++) {
+		const child = element.children[i];
+		const subAnnotation = getBoxAnnotations(child, element, mustBeClickable || clickable);
+		if (!subAnnotation.annotation) {
+			subAnnotations.push(...subAnnotation.subAnnotations);
+		} else {
+			subAnnotations.push(subAnnotation);
+		}
+	}
+	if (!subAnnotations.length && !clickable) {
+		return {
+			annotation: null,
+			subAnnotations: [],
+			numChildren: 0,
+			numClickableChildren: 0,
+		};
+	}
+
+	if (subAnnotations.length === 1 && !clickable) {
+		return subAnnotations[0];
+	}
+
+	return {
+		annotation,
+		subAnnotations,
+		numChildren: subAnnotations.reduce((acc, subAnnotation) => acc + subAnnotation.numChildren + 1, 0),
+		numClickableChildren: subAnnotations.reduce((acc, subAnnotation) => acc + subAnnotation.numClickableChildren + (subAnnotation.annotation?.type === 'clickable' ? 1 : 0), 0),
+	};
+}
+
 
 export function injectScript() {
 	return `
@@ -140,6 +316,9 @@ export function injectScript() {
 	window.getElementsFromData = ${getElementsFromData.toString()};
 	window.getElementData = ${getElementData.toString()};
 	window.buildElementQuery = ${buildElementQuery.toString()};
+	window.isElementVisible = ${isElementVisible.toString()};
+	window.isClickable = ${isClickable.toString()};
+	window.getBoxAnnotations = ${getBoxAnnotations.toString()};
 	`;
 }
 

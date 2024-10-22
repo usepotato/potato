@@ -412,35 +412,46 @@ class Potato {
 	}
 	async runWebAction(browserSessionId: string, action: WebAction) {
 		logger.info('___RUNNING WEB ACTION', action.parameter?.name || '', action.type, action.parameter?.type || '', browserSessionId);
-		const page = await this.#getPage();
-		if (!page) {
-			logger.error('No page found running action', action.id);
-			return false;
-		}
-
-		if (browserSessionId !== this.sessionId) {
-			logger.error('Browser session id does not match');
-			return false;
-		}
-
-		logger.info('Waiting for network idle');
-		try {
-			await page.waitForNetworkIdle({ timeout: 1000 * 5 });
-		} catch (_) {
-			logger.warn('Waiting 5s for network idle timed out');
-		}
-
-		logger.info('Waiting for body');
-
-		// find body's shinpads id
-		const rootElement = await page.evaluate(() => {
-			const body = document.querySelector('body');
-			return body?.getAttribute('shinpads-id');
-		});
 		await this.publishUpdate({ type: 'action-start', data: { actionId: action.id } });
-		const response = await this.#runAction(page, action, rootElement);
-		await this.publishUpdate({ type: 'action-end', data: { actionId: action.id, response } });
-		return response;
+
+		try{
+			const page = await this.#getPage();
+			if (!page) {
+				logger.error('No page found running action', action.id);
+				return false;
+			}
+
+			if (browserSessionId !== this.sessionId) {
+				logger.error('Browser session id does not match');
+				return false;
+			}
+
+
+			logger.info('Waiting for network idle');
+			try {
+				await Promise.race([
+					page.waitForNetworkIdle(),
+					new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout after 8s')), 8000))
+				]);
+			} catch (_) {
+				logger.warn('Waiting 8s for network idle timed out');
+			}
+
+			logger.info('Waiting for body');
+
+			// find body's shinpads id
+			const rootElement = await page.evaluate(() => {
+				const body = document.querySelector('body');
+				return body?.getAttribute('shinpads-id');
+			});
+			const response = await this.#runAction(page, action, rootElement);
+			await this.publishUpdate({ type: 'action-end', data: { actionId: action.id, response } });
+			return response;
+		} catch (error) {
+			logger.error('Failed to run web action', error);
+			await this.publishUpdate({ type: 'action-end', data: { actionId: action.id, response: false } });
+			return false;
+		}
 	}
 
 

@@ -4,8 +4,9 @@
 </h1>
 <p><a href="https://usepotato.com">potato</a> is an open source agentic web browser</p>
 
+
 #### Video Demo
-[![Video Demo](https://img.youtube.com/vi/Iw2ZzdzKap4/0.jpg)](https://www.youtube.com/watch?v=Iw2ZzdzKap4)
+[![Video Demo](https://img.youtube.com/vi/uA40RLLkx7A/0.jpg)](https://www.youtube.com/watch?v=uA40RLLkx7A)
 
 
 ## Examples

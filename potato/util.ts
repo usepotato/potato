@@ -17,17 +17,22 @@ export function getElementData(element, includeText = true) {
 }
 
 export function getElementsFromData(parentEl, elementData) {
-	if (!elementData) return [];
-	// todo: will have to reference the stack in some way
-	const stack = [];
-	let current = elementData;
-	while (current && current.shinpadsId !== parentEl.getAttribute?.('shinpads-id')) {
-		stack.unshift(current);
-		current = current.parent;
+	try {
+		if (!elementData) return [];
+		// todo: will have to reference the stack in some way
+		const stack = [];
+		let current = elementData;
+		while (current && current.shinpadsId !== parentEl.getAttribute?.('shinpads-id')) {
+			stack.unshift(current);
+			current = current.parent;
+		}
+		const query = stack.map((el) => buildElementQuery(el)).join(' > ');
+		const elements = parentEl.querySelectorAll(query);
+		return Array.from(elements);
+	} catch (e) {
+		console.warn('error getting elements from data', e);
+		return [];
 	}
-	const query = stack.map((el) => buildElementQuery(el)).join(' > ');
-	const elements = parentEl.querySelectorAll(query);
-	return Array.from(elements);
 }
 
 export function escapeSpecialChars(text) {

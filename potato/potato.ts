@@ -1,7 +1,7 @@
 import redis from '@lib/redis.js';
 import { getBrowserData } from './helper';
 import getLogger from '@lib/logging.js';
-import puppeteer, { Browser, Frame, HTTPResponse, Page, Target, TargetType } from 'puppeteer';
+import puppeteer, { Browser, Frame, HTTPResponse, Page, Target, TargetType, type KeyInput } from 'puppeteer';
 import browserPageScripts from './browserPageScripts.js';
 import type { Server } from 'socket.io';
 import WebSocket from 'ws';
@@ -345,7 +345,7 @@ class Potato {
 			logger.info('RUNNING ACTION', action.id, action.type, JSON.stringify(action.parameter));
 
 			if (action.type === 'navigate') {
-				await this.processUpdate({ type: 'navigate', data: action.url });
+				await this.processUpdate({ type: 'navigate', data: action.parameter.name });
 				return true;
 			}
 
@@ -358,6 +358,21 @@ class Potato {
 				return false;
 			} else if (action.parameter.type === 'extract') {
 				// extract data from elements
+				return true;
+			} else if (action.parameter.type === 'input') {
+				const words = action.parameter.name.split(' ');
+				for (const word of words) {
+					// if word is surrounded by square brackets like [Enter] or [Shift] then pres that key else type the word
+					if (word.startsWith('[') && word.endsWith(']')) {
+						try {
+							await page.keyboard.press(word.slice(1, -1) as KeyInput);
+						} catch (_) {
+							logger.warn('Failed to press key', word.slice(1, -1));
+						}
+					} else {
+						await page.keyboard.type(word + ' ');
+					}
+				}
 				return true;
 			}
 
@@ -391,9 +406,6 @@ class Potato {
 
 			if (action.parameter.type === 'click') {
 				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
-			} else if (action.parameter.type === 'input') {
-				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
-				await page.keyboard.type(action.parameter.name);
 			} else {
 				// find element, recursivley run action
 				if (action.parameter.isArray) {
@@ -426,7 +438,13 @@ class Potato {
 				return false;
 			}
 
-
+			logger.info('Waiting for body');
+			// find body's shinpads id
+			const rootElement = await page.evaluate(() => {
+				const body = document.querySelector('body');
+				return body?.getAttribute('shinpads-id');
+			});
+			const response = await this.#runAction(page, action, rootElement);
 			logger.info('Waiting for network idle');
 			try {
 				await Promise.race([
@@ -436,15 +454,6 @@ class Potato {
 			} catch (_) {
 				logger.warn('Waiting 8s for network idle timed out');
 			}
-
-			logger.info('Waiting for body');
-
-			// find body's shinpads id
-			const rootElement = await page.evaluate(() => {
-				const body = document.querySelector('body');
-				return body?.getAttribute('shinpads-id');
-			});
-			const response = await this.#runAction(page, action, rootElement);
 			await this.publishUpdate({ type: 'action-end', data: { actionId: action.id, response } });
 			return response;
 		} catch (error) {

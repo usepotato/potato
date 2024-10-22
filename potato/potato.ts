@@ -374,7 +374,15 @@ class Potato {
 			}
 
 			if (action.parameter.type === 'act') {
-				const shinpadsId = await PotatoAI.act(page, action.parameter.name);
+
+				const onPotatoAIUpdate = async (update: any) => {
+					if (update.type === 'considered-elements') {
+						await this.publishUpdate({ type: 'action-update', data: { actionId: action.id, consideredElements: update.data } });
+					}
+				};
+
+
+				const shinpadsId = await PotatoAI.act(page, action.parameter.name, onPotatoAIUpdate);
 				if (shinpadsId) {
 					await this.processUpdate({ type: 'click', data: { shinpadsId } });
 					return true;

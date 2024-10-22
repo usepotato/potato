@@ -10,12 +10,19 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 const logger = getLogger('potatoai');
 
 class PotatoAI {
-	static async act(page: Page, action: string) {
+	static async act(page: Page, action: string, onUpdate: (update: any) => void) {
 		logger.info('act', action);
 		const boxAnnotations = await page.evaluate(() => window.getBoxAnnotations(document.body, null));
 		const annotations = boxAnnotations.subAnnotations;
 
 		await screenShotWithAnnotations(page, annotations);
+
+		onUpdate({
+			type: 'considered-elements',
+			data: annotations.map(annotation =>
+				annotation.annotation.id,
+			),
+		});
 
 		const options = await buildActOptions(page, annotations);
 		logger.info('options', options);

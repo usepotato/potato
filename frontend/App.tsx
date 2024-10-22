@@ -201,16 +201,18 @@ const App: React.FC = () => {
 	}
 
 	function createHighlight(element: HTMLElement, className: string = 'shinpads-highlight', ...classes: string[]) {
-		if (!doc) return;
-		const highlight = doc.createElement('div');
+		if (!iframeRef.current?.contentDocument) {
+			return;
+		}
+		const highlight = iframeRef.current?.contentDocument.createElement('div');
 		highlight.classList.add(className);
 		highlight.classList.add('shinpads-overlay');
 		classes.forEach(c => highlight.classList.add(c));
-		doc.body.appendChild(highlight);
+		iframeRef.current?.contentDocument.body.appendChild(highlight);
 
 		const rect = element.getBoundingClientRect();
-		const scrollX = doc.documentElement.scrollLeft;
-		const scrollY = doc.documentElement.scrollTop;
+		const scrollX = iframeRef.current?.contentDocument.documentElement.scrollLeft;
+		const scrollY = iframeRef.current?.contentDocument.documentElement.scrollTop;
 		highlight.style.left = `${rect.left + scrollX - 2}px`;
 		highlight.style.top = `${rect.top + scrollY - 2}px`;
 		highlight.style.width = `${rect.width + 4}px`;
@@ -299,12 +301,24 @@ const App: React.FC = () => {
 						});
 					}
 				}
-				if (type === 'action-start' || type === 'action-end') {
+				if (type === 'action-start' || type === 'action-end' || type === 'action-update') {
 					console.log('----ACTION UPDATE---', payload);
+					clearHighlights('shinpads-highlight.considered');
 					window.parent.postMessage({
 						type,
 						data: payload.data,
 					}, '*');
+					if (type === 'action-update') {
+						console.log('action-update', payload.data);
+						const elements = payload.data.consideredElements.map((id: string) => iframeRef.current?.contentDocument?.querySelector(`[shinpads-id="${id}"]`));
+						// create highlight for each element
+						console.log('elements', elements);
+						elements.forEach((element) => {
+							if (element) {
+								createHighlight(element, 'shinpads-highlight', 'considered');
+							}
+						});
+					}
 				}
 				if (type === 'page2') {
 					console.log('----PAGE2 UPDATE---', data);

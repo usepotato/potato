@@ -38,7 +38,9 @@ export function getElementsFromData(parentEl, elementData) {
 export function escapeSpecialChars(text) {
 	// put double backslash infront of : or [ or ] or % or # or / or @ or . or & or = or + or ,
 	if (!text) return text;
-	return text.replaceAll(/[:[\]%#/@.&=+,-]/g, '\\$&');
+	// replace - but only if its right after a .
+	text = text.replaceAll(/([.])-/g, '$1\\-');
+	return text.replaceAll(/[:[\]%#/@.&=+,!()]/g, '\\$&');
 }
 
 export function buildElementQuery(element, includeId = false) {

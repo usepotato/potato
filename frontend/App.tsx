@@ -46,7 +46,7 @@ const BrowserNavBar = styled(Box)`
 	padding: 8px;
 	// background-color: #fafafa;
 	border-bottom: 1px solid #e4e4e4;
-	height: 48px;
+	// height: 48px;
 	align-items: center;
 `;
 
@@ -139,8 +139,8 @@ const addNodeFromJson = (containerElement: Element, nj: NodeJson, contentDocumen
 
 	if (element.parentElement === containerElement) {
 		containerElement.querySelectorAll('svg').forEach((svg) => {
-			// eslint-disable-next-line
-			svg.outerHTML = svg.outerHTML;
+			const newSvg = svg.cloneNode(true);
+			svg.parentNode?.replaceChild(newSvg, svg);
 		});
 	}
 
@@ -850,9 +850,6 @@ const App: React.FC = () => {
 			<PageContentContainer>
 				<BrowserContainer boxShadow='md'>
 					<BrowserNavBar>
-						<Box display='flex' borderRadius="5px" marginLeft={0.5}>
-							<LogoIcon width={32} height={32} />
-						</Box>
 						<NavButtons>
 							<IconButton onClick={onGoBack}>
 								<ArrowBackIcon width={16} height={16} fill='currentColor' />

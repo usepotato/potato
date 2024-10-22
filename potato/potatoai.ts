@@ -95,7 +95,7 @@ async function buildActOptions(page: Page, annotations: any) {
 	const options = await Promise.all(annotations.map(async (annotation: any, index: number) => {
 		const screenshot = await screenShotAnnotation(page, annotation);
 		const response = await openai.chat.completions.create({
-			model: 'gpt-4o',
+			model: 'gpt-4o-mini',
 			messages: [
 				{
 					role: 'user',
@@ -144,6 +144,8 @@ async function screenShotAnnotation(page: Page, annotation: any) {
 	const extractWidth = Math.min(Math.ceil(width) + 4, metadata.width - left);
 	const extractHeight = Math.min(Math.ceil(height) + 4, metadata.height - top);
 	sharpImage = sharpImage.extract({ left, top, width: extractWidth, height: extractHeight });
+	// down sample the image to half the original resolution
+	sharpImage = sharpImage.resize({ width: Math.ceil(extractWidth / 1.5), height: Math.ceil(extractHeight / 1.5) });
 	// return base64 encoded url
 	// like data:image/png;base64
 	return sharpImage.toBuffer().then(buffer => `data:image/png;base64,${buffer.toString('base64')}`);

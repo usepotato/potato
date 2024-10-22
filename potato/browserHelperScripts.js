@@ -34,7 +34,7 @@ export function getElementsFromData(doc, elementData) {
 function escapeSpecialChars(text) {
 	// put double backslash infront of : or [ or ] or % or # or / or @ or . or & or = or + or ,
 	if (!text) return text;
-	return text.replaceAll(/[:[\]%#/@.&=+,-]/g, '\\$&');
+	return text.replaceAll(/[:[\]%#/@.&=+,-!]/g, '\\$&');
 }
 
 function buildElementQuery(element, includeId = false) {

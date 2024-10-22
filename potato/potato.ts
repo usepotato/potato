@@ -43,6 +43,8 @@ class Potato {
 	isShuttingDown: boolean;
 	hasBeenConnected: boolean;
 	lastConnectedAt: number | null;
+	numOpenRequests: number;
+	openRequests: Set<string>;
 
 	constructor(io: Server, workerId: string, baseUrl: string) {
 		this.io = io;
@@ -57,7 +59,8 @@ class Potato {
 		this.isShuttingDown = false;
 		this.hasBeenConnected = false;
 		this.lastConnectedAt = null;
-
+		this.numOpenRequests = 0;
+		this.openRequests = new Set<string>();
 		this._checkStateLoop();
 	}
 
@@ -160,6 +163,31 @@ class Potato {
 						}
 					};
 
+					this.numOpenRequests = 0;
+					this.openRequests = new Set<string>();
+
+					page.setRequestInterception(true);
+					page.on('request', async (request) => {
+						// only count XHR, js, cs, html
+						if (request.resourceType() === 'xhr' || request.resourceType() === 'script' || request.resourceType() === 'stylesheet' || request.resourceType() === 'document') {
+							this.numOpenRequests++;
+							this.openRequests.add(request.url());
+						}
+						request.continue();
+					});
+					page.on('requestfinished', (request) => {
+						if (request.resourceType() === 'xhr' || request.resourceType() === 'script' || request.resourceType() === 'stylesheet' || request.resourceType() === 'document') {
+							this.numOpenRequests--;
+							this.openRequests.delete(request.url());
+						}
+					});
+					page.on('requestfailed', (request) => {
+						if (request.resourceType() === 'xhr' || request.resourceType() === 'script' || request.resourceType() === 'stylesheet' || request.resourceType() === 'document') {
+							this.numOpenRequests--;
+							this.openRequests.delete(request.url());
+						}
+					});
+
 					page.on('response', onResponse);
 					page.on('framenavigated', onFrameNavigated);
 				}
@@ -222,10 +250,6 @@ class Potato {
 	}
 
 	async processUpdate(update: BrowserUpdate) {
-		if (!this.browser) {
-			logger.error('Browser not connected');
-			return;
-		}
 
 		try {
 			const page = await this.#getPage();
@@ -422,6 +446,25 @@ class Potato {
 			return false;
 		}
 	}
+
+
+	async #waitForNetworkIdle() {
+		return new Promise<void>((resolve) => {
+			const checkIdle = () => {
+				if (this.numOpenRequests === 0) {
+					logger.info('Network clear, proceeding');
+					resolve();
+				} else {
+					logger.info(`Network busy, with ${this.numOpenRequests} requests waiting...`);
+					logger.info('Open requests', this.openRequests);
+					setTimeout(checkIdle, 100);
+				}
+			};
+			checkIdle();
+		});
+	}
+
+
 	async runWebAction(browserSessionId: string, action: WebAction) {
 		logger.info('___RUNNING WEB ACTION', action.parameter?.name || '', action.type, action.parameter?.type || '', browserSessionId);
 		await this.publishUpdate({ type: 'action-start', data: { actionId: action.id } });
@@ -448,8 +491,8 @@ class Potato {
 			logger.info('Waiting for network idle');
 			try {
 				await Promise.race([
-					page.waitForNetworkIdle(),
-					new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout after 8s')), 8000))
+					this.#waitForNetworkIdle(),
+					new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout after 30s')), 30000))
 				]);
 			} catch (_) {
 				logger.warn('Waiting 8s for network idle timed out');

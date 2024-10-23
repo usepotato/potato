@@ -16,7 +16,7 @@ export function getElementData(element, includeText = true) {
 	};
 }
 
-export function getElementsFromData(parentEl, elementData) {
+export function getElementsFromData(parentEl, elementData, isUnique = false) {
 	try {
 		if (!elementData) return [];
 		// todo: will have to reference the stack in some way
@@ -27,8 +27,14 @@ export function getElementsFromData(parentEl, elementData) {
 			current = current.parent;
 		}
 		const query = stack.map((el) => buildElementQuery(el)).join(' > ');
-		const elements = parentEl.querySelectorAll(query);
-		return Array.from(elements);
+		const elements = Array.from(parentEl.querySelectorAll(query));
+		if (!isUnique) {
+			return elements;
+		} else {
+			// TODO: can do smarter things here probably
+			const filtered = elements.filter(el => el.innerText === elementData.text);
+			return filtered;
+		}
 	} catch (e) {
 		console.warn('error getting elements from data', e);
 		return [];

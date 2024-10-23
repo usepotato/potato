@@ -420,7 +420,7 @@ class Potato {
 
 			const elements = await page.evaluate((action, rootElementId) => {
 				const parentElement = document.querySelector(`[shinpads-id="${rootElementId}"]`);
-				const elements = window.getElementsFromData(parentElement, action.element);
+				const elements = window.getElementsFromData(parentElement, action.element, action.parameter.type === 'click' && !action.parameter.isArray);
 				return elements.map((el) => window.getElementData(el));
 			}, action, rootElementId);
 
@@ -513,10 +513,10 @@ class Potato {
 		return new Promise<void>((resolve) => {
 			const checkIdle = () => {
 				if (this.openRequests.get(page)?.size === 0) {
-					logger.info('Network clear, proceeding');
+					logger.info(`Network clear, proceeding on ${page.url()}`);
 					resolve();
 				} else {
-					logger.info(`Network busy, with ${this.openRequests.get(page)?.size} requests waiting...`);
+					logger.info(`Network busy, with ${this.openRequests.get(page)?.size} requests waiting... on ${page.url()}`);
 					setTimeout(checkIdle, 100);
 				}
 			};
@@ -528,10 +528,10 @@ class Potato {
 		return new Promise<void>((resolve) => {
 			const checkInitialized = () => {
 				if (this.pageInitialized.get(page)) {
-					logger.info('Page initialized, continuing');
+					logger.info(`Page ${page.url()} initialized, continuing`);
 					resolve();
 				} else {
-					logger.info('Page not initialized, waiting...');
+					logger.info(`Page ${page.url()} not initialized, waiting...`);
 					setTimeout(checkInitialized, 100);
 				}
 			};

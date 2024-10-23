@@ -7,6 +7,7 @@ import type { Server } from 'socket.io';
 import WebSocket from 'ws';
 import { injectScript } from './util';
 import PotatoAI from 'potatoai.js';
+import type { WebAction } from './types';
 
 const logger = getLogger('potato');
 
@@ -14,17 +15,6 @@ interface BrowserUpdate {
 	type: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 	data: any;
-}
-
-interface WebAction {
-	id: string;
-	type: string;
-	url?: string;
-	parameter: Record<string, string>;
-	element: Record<string, string>;
-	subActions: WebAction[];
-	attribute: string | null;
-	filters: Record<string, string>[];
 }
 
 const DISCONNECT_TIMEOUT = 1000 * 30; // 30 seconds
@@ -150,6 +140,7 @@ class Potato {
 					const onFrameNavigated = async (frame: Frame) => {
 						try {
 							if (page.mainFrame() === frame) {
+								this.pageInitialized.set(page, false);
 								await this.publishUpdate({ type: 'loading', data: { 'loading': true } });
 								await page.waitForSelector('body');
 								try {
@@ -389,6 +380,7 @@ class Potato {
 	async #runAction(page: Page, action: WebAction, rootElementId: string) {
 		try {
 			logger.info('RUNNING ACTION', action.id, action.type, JSON.stringify(action.parameter));
+			await this.#waitForPageInitialized(page);
 			await this.#waitForNetworkIdle(page);
 
 			if (action.type === 'navigate') {
@@ -409,9 +401,6 @@ class Potato {
 					return true;
 				}
 				return false;
-			} else if (action.parameter.type === 'extract') {
-				// extract data from elements
-				return true;
 			} else if (action.parameter.type === 'input') {
 				const words = action.parameter.name.split(' ');
 				for (const word of words) {
@@ -453,6 +442,7 @@ class Potato {
 			};
 
 			if (!elements.length) {
+				logger.warn('No elements found for action', action.id);
 				if (action.parameter.isArray) {
 					return [];
 				} else {
@@ -460,7 +450,15 @@ class Potato {
 				}
 			}
 
-			if (action.parameter.type === 'click') {
+			if (action.parameter.type === 'extract') {
+				if (action.parameter.isArray) {
+					// TODO: add array support
+					return [];
+				} else {
+					const elementHtml = await page.evaluate((element) => document.querySelector(`[shinpads-id="${element.shinpadsId}"]`)?.outerHTML, elements[0]);
+					return await PotatoAI.extract(elementHtml, action, () => {});
+				}
+			} else if (action.parameter.type === 'click') {
 				if (action.parameter.isArray) {
 					// click but in new tab. and then close the page when all sub actions are completed.
 					const response = [];
@@ -478,6 +476,7 @@ class Potato {
 						logger.info('newPage', newPage?.url());
 						// await this.#waitForNetworkIdle();
 						logger.info('Running sub actions', action.subActions.length);
+						res._url = newPage?.url();
 						for (const subAction of action.subActions) {
 							res[subAction.parameter.name] = await this.#runAction(newPage, subAction, newBody);
 						}
@@ -556,7 +555,6 @@ class Potato {
 				logger.error('Browser session id does not match');
 				return false;
 			}
-
 			logger.info('Waiting for body');
 			// find body's shinpads id
 			const rootElement = await page.evaluate(() => {
@@ -567,7 +565,10 @@ class Potato {
 			logger.info('Waiting for network idle');
 			try {
 				await Promise.race([
-					this.#waitForNetworkIdle(page),
+					Promise.all([
+						this.#waitForNetworkIdle(page),
+						this.#waitForPageInitialized(page)
+					]),
 					new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout after 30s')), 30000))
 				]);
 			} catch (_) {

@@ -5,6 +5,8 @@ import sharp from 'sharp';
 import openai from '@lib/openai';
 import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
+import type { WebAction } from 'types';
+import { NodeHtmlMarkdown, NodeHtmlMarkdownOptions } from 'node-html-markdown';
 
 
 const logger = getLogger('potatoai');
@@ -83,11 +85,62 @@ class PotatoAI {
 
 	}
 
-	static async extract(page: Page, extraction: string) {
-		// given a page and an extraction, find the best thing(s) to extract
-		// similar to act, but need to find potentially many
+	static async extract(elementHtml: string, action: WebAction, onUpdate: (update: any) => void) {
+		// TODO: clean up the html a lot
+
+		const markdown = await NodeHtmlMarkdown.translate(elementHtml, { keepDataImages: true });
+
+		// first build schema based on subActions of the action.
+		const schema = buildSchema(action);
+
+		if (!markdown) {
+			// return empty object based on schema
+			return {};
+		}
+
+		const response = await openai.chat.completions.create({
+			model: 'gpt-4o',
+			messages: [
+				{
+					role: 'system',
+					content: 'Here is a component on a webpage in markdown format. Please extract the data from it according to the provided schema.',
+				},
+				{
+					role: 'user',
+					content: [
+						{
+							type: 'text',
+							// text: 'email: robfarlow@gmail.com, location: San Francisco, CA',
+							text: markdown,
+						},
+					],
+				},
+			],
+			response_format: zodResponseFormat(schema, action.parameter.name),
+			// response_format: zodResponseFormat(z.object({ email: z.string(), location: z.string() }), 'details'),
+		});
+
+		const result = JSON.parse(response.choices[0].message.content || '{}');
+		return result;
 	}
 
+}
+
+function buildSchema(action: WebAction) {
+	if (['text', 'image'].includes(action.parameter.type)) {
+		return z.string().nullable();
+	} else if (action.parameter.type === 'number') {
+		return z.number().nullable();
+	} else if (action.parameter.type === 'boolean') {
+		return z.boolean().nullable();
+	}
+
+	const schema: Record<string, z.ZodType> = {};
+
+	for (const subAction of action.subActions) {
+		schema[subAction.parameter.name] = buildSchema(subAction);
+	}
+	return z.object(schema);
 }
 
 async function buildActOptions(page: Page, annotations: any) {

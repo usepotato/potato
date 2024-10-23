@@ -43,8 +43,8 @@ class Potato {
 	isShuttingDown: boolean;
 	hasBeenConnected: boolean;
 	lastConnectedAt: number | null;
-	numOpenRequests: number;
-	openRequests: Set<string>;
+	openRequests: Map<Page, Set<string>>;
+	pageInitialized: Map<Page, boolean>;
 
 	constructor(io: Server, workerId: string, baseUrl: string) {
 		this.io = io;
@@ -59,8 +59,8 @@ class Potato {
 		this.isShuttingDown = false;
 		this.hasBeenConnected = false;
 		this.lastConnectedAt = null;
-		this.numOpenRequests = 0;
-		this.openRequests = new Set<string>();
+		this.openRequests = new Map<Page, Set<string>>();
+		this.pageInitialized = new Map<Page, boolean>();
 		this._checkStateLoop();
 	}
 
@@ -99,7 +99,7 @@ class Potato {
 	async #getPage(): Promise<Page | null> {
 		if (!this.browser) { return null; }
 		const pages = await this.browser.pages();
-		if (pages.length) return pages[0];
+		if (pages.length) return pages[pages.length - 1];
 
 		const page = await this.browser.newPage();
 		return page;
@@ -122,69 +122,71 @@ class Potato {
 			logger.info('browserData', JSON.stringify(browserData));
 			this.browser = await puppeteer.connect({ browserWSEndpoint: this.browserWsUrl });
 
-			const onShinpadsUpdate = (msg: string) => {
-				try {
-					const data = JSON.parse(msg);
-					this.publishUpdate(data);
-				} catch (error) {
-					logger.error('Error processing update', error);
-				}
-			};
-
-			const onResponse = async (response: HTTPResponse) => {
-				try {
-					const content = await response.buffer();
-					const contentType = response.headers()['content-type'];
-					this.requestCache[response.url()] = [content, contentType];
-				} catch (_) {
-					logger.error('Error caching response', response.url());
-				}
-
-			};
-
 
 			const onTargetCreated = async (target: Target) => {
 				if (target.type() === TargetType.PAGE) {
 					const page = await target.page();
 					if (!page) return;
-					const onFrameNavigated = async (frame: Frame) => {
-						if (page.mainFrame() === frame) {
-							await this.publishUpdate({ type: 'loading', data: { 'loading': true } });
-							await page.waitForSelector('body');
-							try {
-								await page.exposeFunction('shinpadsUpdate', onShinpadsUpdate);
-							} catch (_) { /* ignore */ }
 
-							await page.evaluate(`window.browserSessionId = "${this.sessionId}"`);
-							logger.info('Evaluating browserPageScripts', browserPageScripts);
-							const script = injectScript();
-							await page.evaluate(script);
-							await page.evaluate(browserPageScripts);
+					const onShinpadsUpdate = (msg: string) => {
+						try {
+							const data = JSON.parse(msg);
+							this.publishUpdate(data);
+						} catch (error) {
+							logger.error('Error processing update', error);
 						}
 					};
 
-					this.numOpenRequests = 0;
-					this.openRequests = new Set<string>();
+					const onResponse = async (response: HTTPResponse) => {
+						try {
+							const content = await response.buffer();
+							const contentType = response.headers()['content-type'];
+							this.requestCache[response.url()] = [content, contentType];
+						} catch (_) {
+							logger.error('Error caching response', response.url());
+						}
+					};
+
+					const onFrameNavigated = async (frame: Frame) => {
+						try {
+							if (page.mainFrame() === frame) {
+								await this.publishUpdate({ type: 'loading', data: { 'loading': true } });
+								await page.waitForSelector('body');
+								try {
+									await page.exposeFunction('shinpadsUpdate', onShinpadsUpdate);
+								} catch (_) { /* ignore */ }
+
+								logger.info('Injecting scripts!');
+								await page.evaluate(`window.browserSessionId = "${this.sessionId}"`);
+								const script = injectScript();
+								await page.evaluate(script);
+								await page.evaluate(browserPageScripts);
+								this.pageInitialized.set(page, true);
+							}
+						} catch (err) {
+							logger.warn('Error injecting scripts', err);
+						}
+					};
+
+					this.openRequests.set(page, new Set<string>());
+					this.pageInitialized.set(page, false);
 
 					page.setRequestInterception(true);
 					page.on('request', async (request) => {
 						// only count XHR, js, cs, html
 						if (request.resourceType() === 'xhr' || request.resourceType() === 'script' || request.resourceType() === 'stylesheet' || request.resourceType() === 'document') {
-							this.numOpenRequests++;
-							this.openRequests.add(request.url());
+							this.openRequests.get(page)?.add(request.url());
 						}
 						request.continue();
 					});
 					page.on('requestfinished', (request) => {
 						if (request.resourceType() === 'xhr' || request.resourceType() === 'script' || request.resourceType() === 'stylesheet' || request.resourceType() === 'document') {
-							this.numOpenRequests--;
-							this.openRequests.delete(request.url());
+							this.openRequests.get(page)?.delete(request.url());
 						}
 					});
 					page.on('requestfailed', (request) => {
 						if (request.resourceType() === 'xhr' || request.resourceType() === 'script' || request.resourceType() === 'stylesheet' || request.resourceType() === 'document') {
-							this.numOpenRequests--;
-							this.openRequests.delete(request.url());
+							this.openRequests.get(page)?.delete(request.url());
 						}
 					});
 
@@ -258,7 +260,18 @@ class Potato {
 			if (update.type === 'resize') {
 				await page.setViewport(update.data);
 			} else if (update.type === 'click') {
-				await page.click(`[shinpads-id="${update.data.shinpadsId}"]`);
+				if (update.data.newTab) {
+					// Use page.evaluate to modify the click behavior
+					await page.evaluate((shinpadsId) => {
+						const element = document.querySelector(`[shinpads-id="${shinpadsId}"]`);
+						if (element instanceof HTMLAnchorElement) {
+							element.target = '_blank';
+						}
+					}, update.data.shinpadsId);
+					await page.click(`[shinpads-id="${update.data.shinpadsId}"]`);
+				} else {
+					await page.click(`[shinpads-id="${update.data.shinpadsId}"]`);
+				}
 				logger.info(`Clicked on ${update.data.x}, ${update.data.y}`);
 			} else if (update.type === 'scroll') {
 				await page.evaluate(`window.scrollTo(${update.data.x}, ${update.data.y})`);
@@ -292,9 +305,13 @@ class Potato {
 	async sendPageContent() {
 		const page = await this.#getPage();
 		if (!page) { return; }
-		await page.waitForSelector('body');
-		// @ts-ignore
-		await page.evaluate(() => window.sendPageContent());
+		try {
+			await page.waitForSelector('body');
+			// @ts-ignore
+			await page.evaluate(() => window.sendPageContent());
+		} catch (error) {
+			logger.error('Failed to send page content', error);
+		}
 	}
 
 	async publishUpdate(update: BrowserUpdate) {
@@ -323,36 +340,41 @@ class Potato {
 		const page = await this.#getPage();
 		if (!page) { return null; }
 
-		await page.waitForSelector('body');
+		try {
+			await page.waitForSelector('body');
 
-		if (path.startsWith('/')) {
-			path = `${page.url()}${path}`;
-		}
-
-		if (!path.startsWith('http')) {
-			if (!path.startsWith('/')) {
-				path = `/${path}`;
+			if (path.startsWith('/')) {
+				path = `${page.url()}${path}`;
 			}
-			const originUrl = page.url().split('/').slice(0, 3).join('/');
-			path = `${originUrl}${path}`;
-		}
 
-		if (this.requestCache[path]) {
-			const [content, contentType] = this.requestCache[path];
-			if (content.length > 0) {
-				return { buffer: content, contentType };
+			if (!path.startsWith('http')) {
+				if (!path.startsWith('/')) {
+					path = `/${path}`;
+				}
+				const originUrl = page.url().split('/').slice(0, 3).join('/');
+				path = `${originUrl}${path}`;
 			}
+
+			if (this.requestCache[path]) {
+				const [content, contentType] = this.requestCache[path];
+				if (content.length > 0) {
+					return { buffer: content, contentType };
+				}
+			}
+
+			//@ts-ignore
+			const dataUrl = await page.evaluate((path) => window.getBase64FromUrl(path), path);
+			if (!dataUrl) { return null; }
+			const contentType = dataUrl.split(':')[1].split(';')[0];
+			const content = dataUrl.split(',')[1];
+			const contentBytes = Buffer.from(content, 'base64');
+
+			this.requestCache[path] = [contentBytes, contentType];
+			return { buffer: contentBytes, contentType };
+		} catch (error) {
+			logger.error('Failed to get static resource', error);
+			throw error;
 		}
-
-		//@ts-ignore
-		const dataUrl = await page.evaluate((path) => window.getBase64FromUrl(path), path);
-		if (!dataUrl) { return null; }
-		const contentType = dataUrl.split(':')[1].split(';')[0];
-		const content = dataUrl.split(',')[1];
-		const contentBytes = Buffer.from(content, 'base64');
-
-		this.requestCache[path] = [contentBytes, contentType];
-		return { buffer: contentBytes, contentType };
 	}
 
 
@@ -367,6 +389,7 @@ class Potato {
 	async #runAction(page: Page, action: WebAction, rootElementId: string) {
 		try {
 			logger.info('RUNNING ACTION', action.id, action.type, JSON.stringify(action.parameter));
+			await this.#waitForNetworkIdle(page);
 
 			if (action.type === 'navigate') {
 				await this.processUpdate({ type: 'navigate', data: action.parameter.name });
@@ -374,13 +397,11 @@ class Potato {
 			}
 
 			if (action.parameter.type === 'act') {
-
 				const onPotatoAIUpdate = async (update: any) => {
 					if (update.type === 'considered-elements') {
 						await this.publishUpdate({ type: 'action-update', data: { actionId: action.id, consideredElements: update.data } });
 					}
 				};
-
 
 				const shinpadsId = await PotatoAI.act(page, action.parameter.name, onPotatoAIUpdate);
 				if (shinpadsId) {
@@ -414,11 +435,6 @@ class Potato {
 				return elements.map((el) => window.getElementData(el));
 			}, action, rootElementId);
 
-			if (!elements.length) {
-				logger.warn('No elements found for action', action.parameter?.name, action.type, action.parameter?.type, rootElementId);
-				return false;
-			}
-
 			const getActionElementValue = async (element) => {
 				if (action.parameter.type === 'object') {
 					// call for all subactions
@@ -436,8 +452,46 @@ class Potato {
 				return null;
 			};
 
+			if (!elements.length) {
+				if (action.parameter.isArray) {
+					return [];
+				} else {
+					return null;
+				}
+			}
+
 			if (action.parameter.type === 'click') {
-				await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
+				if (action.parameter.isArray) {
+					// click but in new tab. and then close the page when all sub actions are completed.
+					const response = [];
+					for (const element of elements) {
+						const res: Record<string, any> = {};
+						logger.info('Clicking on element', element.shinpadsId);
+						await this.processUpdate({ type: 'click', data: { shinpadsId: element.shinpadsId, newTab: true } });
+						// wait for new page to be created
+						await new Promise(resolve => this.browser?.once('targetcreated', resolve));
+						const newPage = await this.#getPage();
+						logger.info('newPage loaded', newPage?.url());
+						// wait for page to be loaded
+						await this.#waitForPageInitialized(newPage);
+						const newBody = await newPage?.evaluate(() => document.querySelector('body')?.getAttribute('shinpads-id'));
+						logger.info('newPage', newPage?.url());
+						// await this.#waitForNetworkIdle();
+						logger.info('Running sub actions', action.subActions.length);
+						for (const subAction of action.subActions) {
+							res[subAction.parameter.name] = await this.#runAction(newPage, subAction, newBody);
+						}
+						response.push(res);
+						try {
+							await newPage.close();
+						} catch (_) {
+							logger.warn('Failed to close new page', newPage?.url());
+						}
+					}
+					return response;
+				} else {
+					await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
+				}
 			} else {
 				// find element, recursivley run action
 				if (action.parameter.isArray) {
@@ -456,19 +510,33 @@ class Potato {
 	}
 
 
-	async #waitForNetworkIdle() {
+	async #waitForNetworkIdle(page: Page) {
 		return new Promise<void>((resolve) => {
 			const checkIdle = () => {
-				if (this.numOpenRequests === 0) {
+				if (this.openRequests.get(page)?.size === 0) {
 					logger.info('Network clear, proceeding');
 					resolve();
 				} else {
-					logger.info(`Network busy, with ${this.numOpenRequests} requests waiting...`);
-					logger.info('Open requests', this.openRequests);
+					logger.info(`Network busy, with ${this.openRequests.get(page)?.size} requests waiting...`);
 					setTimeout(checkIdle, 100);
 				}
 			};
 			checkIdle();
+		});
+	}
+
+	async #waitForPageInitialized(page: Page) {
+		return new Promise<void>((resolve) => {
+			const checkInitialized = () => {
+				if (this.pageInitialized.get(page)) {
+					logger.info('Page initialized, continuing');
+					resolve();
+				} else {
+					logger.info('Page not initialized, waiting...');
+					setTimeout(checkInitialized, 100);
+				}
+			};
+			checkInitialized();
 		});
 	}
 
@@ -499,7 +567,7 @@ class Potato {
 			logger.info('Waiting for network idle');
 			try {
 				await Promise.race([
-					this.#waitForNetworkIdle(),
+					this.#waitForNetworkIdle(page),
 					new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout after 30s')), 30000))
 				]);
 			} catch (_) {

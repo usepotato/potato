@@ -68,12 +68,16 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/*', async (req, res) => {
-	// @ts-ignore
-	const path = req.params[0] as string;
-	const queryString = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
-	const { buffer, contentType } = await app.locals.potato.getStaticResource(path + queryString);
-	res.set('Content-Type', contentType);
-	res.send(buffer);
+	try {
+		// @ts-ignore
+		const path = req.params[0] as string;
+		const queryString = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
+		const { buffer, contentType } = await app.locals.potato.getStaticResource(path + queryString);
+		res.set('Content-Type', contentType);
+		res.send(buffer);
+	} catch (error) {
+		res.status(500).send('Internal server error');
+	}
 });
 
 app.post('/start-session', async (req, res) => {

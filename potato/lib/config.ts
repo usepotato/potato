@@ -5,6 +5,7 @@ import {
 } from '@aws-sdk/client-secrets-manager';
 
 dotenv.config({ path: '.env' });
+dotenv.config({ path: '../.env' });
 
 const client = new SecretsManagerClient({
 	region: 'us-west-1',

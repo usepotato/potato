@@ -1,11 +1,11 @@
 {
-  "name": "potato",
-  "module": "potato/index.ts",
+  "name": "plato",
+  "module": "plato/index.ts",
   "type": "module",
   "scripts": {
-    "dev": "DEBUG=potato:* bun --watch potato/index.ts",
+    "dev": "DEBUG=plato:* bun --watch plato/index.ts",
     "client-dev": "webpack serve --config ./webpack.config.cjs --mode development --hot",
-    "start": "DEBUG=potato:* NODE_ENV=production bun ./potato/index.ts",
+    "start": "DEBUG=plato:* NODE_ENV=production bun ./plato/index.ts",
     "build": "rm -rf dist && bun build.ts",
     "lint": "eslint ."
   },

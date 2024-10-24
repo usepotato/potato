@@ -16,7 +16,5 @@
       "@public/*": ["public/*"],
     },
   },
-  // "include": ["./frontend/**/*"],
-  // "exclude": ["node_modules", "dist", "build", "out", "public", "server", "potato"]
 }
 

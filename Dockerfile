@@ -30,7 +30,7 @@ RUN pwd && ls -la  # Add this line to print working directory and list contents
 FROM base AS potato
 COPY --from=install /temp/prod/node_modules node_modules
 RUN pwd && ls -la /app  # Add this line to list contents of /app
-COPY --from=prerelease /app/potato potato
+COPY --from=prerelease /app/plato plato
 COPY --from=prerelease /app/dist dist
 COPY --from=prerelease /app/package.json .
 

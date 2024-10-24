@@ -1,16 +1,16 @@
 import redis from '@lib/redis';
-import { getBrowserData } from './helper';
+import { getBrowserData } from './helper.js';
 import getLogger from '@lib/logging';
 import puppeteer, { Browser, Frame, HTTPResponse, Page, Target, TargetType, type KeyInput } from 'puppeteer';
 import browserPageScripts from './browserPageScripts.js';
 import type { Server } from 'socket.io';
 import WebSocket from 'ws';
-import { injectScript } from './util';
-import PotatoAI from 'potatoai.js';
-import type { WebAction } from './types';
+import { injectScript } from './util.js';
+import PlatoAI from './platoai.js';
+import type { WebAction } from './types.js';
 import { LRUCache } from 'lru-cache';
 
-const logger = getLogger('potato');
+const logger = getLogger('plato');
 
 interface BrowserUpdate {
 	type: string;
@@ -20,7 +20,7 @@ interface BrowserUpdate {
 
 const DISCONNECT_TIMEOUT = 1000 * 30; // 30 seconds
 
-class Potato {
+class Plato {
 	workerId: string;
 	baseUrl: string;
 	browser: Browser | null;
@@ -446,7 +446,7 @@ class Potato {
 						logger.warn('No element html found for extraction', elements[0].shinpadsId);
 						return null;
 					}
-					return await PotatoAI.extract(elementHtml, action, () => {});
+					return await PlatoAI.extract(elementHtml, action, () => {});
 				}
 			} else if (action.parameter.type === 'click') {
 				if (action.parameter.isArray) {
@@ -600,4 +600,4 @@ class Potato {
 }
 
 
-export default Potato;
+export default Plato;

@@ -20,9 +20,9 @@
     "forceConsistentCasingInFileNames": true,
 
     /* Paths */
-    "baseUrl": "../plato",
+    "baseUrl": ".",
     "paths": {
-      "@lib/*": ["../plato/lib/*"],
+      "@lib/*": ["lib/*"],
     },
   },
 }

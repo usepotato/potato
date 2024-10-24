@@ -10,7 +10,7 @@ import CursorTypingIcon from 'icons/CursorTypingIcon';
 import ImageIcon from 'icons/ImageIcon';
 import TextIcon from 'icons/TextIcon';
 import FullArrowUpIcon from 'icons/FullArrowUpIcon';
-import {  buildLowestListParent, getBase64FromUrl, getElementData, getElementsFromData } from '../potato/util';
+import {  buildLowestListParent, getBase64FromUrl, getElementData, getElementsFromData } from '../plato/util';
 import { Events, appendIFrameStyle, ElementData } from './helper';
 import DisconnectedIcon from 'icons/DisconnectedIcon';
 

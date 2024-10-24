@@ -9,9 +9,9 @@ import type { WebAction } from 'types';
 import { NodeHtmlMarkdown, NodeHtmlMarkdownOptions } from 'node-html-markdown';
 
 
-const logger = getLogger('potatoai');
+const logger = getLogger('platoai');
 
-class PotatoAI {
+class PlatoAI {
 	static async act(page: Page, action: string, onUpdate: (update: any) => void) {
 		logger.info('act', action);
 		const boxAnnotations = await page.evaluate(() => window.getBoxAnnotations(document.body, null));
@@ -247,4 +247,4 @@ async function screenShotWithAnnotations(page: Page, annotations: any) {
 	fs.writeFileSync('tmp/annotatedBoxAnnotations.png', annotatedScreenshot);
 }
 
-export default PotatoAI;
+export default PlatoAI;

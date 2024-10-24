@@ -11,7 +11,7 @@ module.exports = (env, argv) => ({
 	output: {
 		path: path.join(__dirname, outputDirectory),
 		publicPath: '/',
-		filename: 'potato/bundle.js',
+		filename: 'plato/bundle.js',
 	},
 	// devtool: argv.mode === 'development' ? 'eval-source-map' : 'source-map',
 	devtool: argv.mode === 'development' ? 'eval-source-map' : 'source-map',
@@ -78,7 +78,7 @@ module.exports = (env, argv) => ({
 				ws: true,
 			},
 			{
-				context: ['!**/potato/**'],
+				context: ['!**/plato/**'],
 				target: 'http://localhost:8080',
 			},
 		],
@@ -86,7 +86,7 @@ module.exports = (env, argv) => ({
 	plugins: [
 		new HtmlWebpackPlugin({
 			template: './frontend/public/index.html',
-			filename: 'potato/index.html',
+			filename: 'plato/index.html',
 			publicPath: '/',
 			minify: argv.mode === 'production' ? {
 				removeComments: true,
@@ -110,7 +110,7 @@ module.exports = (env, argv) => ({
 		}),
 		new CopyPlugin({
 			patterns: [
-				{ from: './frontend/public/favicon.ico', to: 'potato/favicon.ico' },
+				{ from: './frontend/public/favicon.ico', to: 'plato/favicon.ico' },
 			],
 		}),
 	],

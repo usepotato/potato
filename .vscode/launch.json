@@ -10,7 +10,7 @@
       "name": "Debug Bun",
 
       // The path to a JavaScript or TypeScript file to run.
-      "program": "${workspaceFolder}/potato/index.ts",
+      "program": "${workspaceFolder}/plato/index.ts",
 
       "internalConsoleOptions": "openOnSessionStart",
 
@@ -22,7 +22,7 @@
 
       // The environment variables to pass to the program.
       "env": {
-        "DEBUG": "potato:*",
+        "DEBUG": "plato:*",
         "NODE_ENV": "development",
       },
 

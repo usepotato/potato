@@ -608,7 +608,7 @@ const App: React.FC = () => {
 	useEffect(() => {
 		clearHighlights('shinpads-highlight.active', 'shinpads-highlight.active-secondary', 'shinpads-highlight.active-container');
 		if (activeAction && doc) {
-			const elements = getElementsFromData(doc.body, activeAction.element, !activeAction.parameter.isArray);
+			const elements = getElementsFromData(doc.body, activeAction.element, !activeAction.parameter.isArray && activeAction.type === 'click');
 			console.log(elements);
 
 			// TODO: apply filters
@@ -627,7 +627,7 @@ const App: React.FC = () => {
 				setActiveListElement(newActiveListElement);
 
 				(activeAction.subActions || activeAction.subData)?.forEach(subAction => {
-					const subListItems = getElementsFromData(doc.body, subAction.element, !subAction.parameter.isArray);
+					const subListItems = getElementsFromData(doc.body, subAction.element, !subAction.parameter.isArray && activeAction.type === 'click');
 					elements.forEach(el => {
 						const elSubElements = subListItems.filter(el2 => el.contains(el2));
 						// subAction.filters?.forEach(filter => {

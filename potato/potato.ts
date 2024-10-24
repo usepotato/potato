@@ -450,6 +450,8 @@ class Potato {
 				}
 			}
 
+			logger.info(`found ${elements.length} elements for action ${action.id}`);
+
 			if (action.parameter.type === 'extract') {
 				if (action.parameter.isArray) {
 					// TODO: add array support

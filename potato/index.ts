@@ -180,6 +180,11 @@ server.listen(port, async () => {
 	['SIGINT', 'SIGUSR1', 'SIGUSR2', 'SIGTERM'].forEach((signalType) => {
 		process.on(signalType, handleShutdown.bind(null));
 	});
+
+	// listen for any uncaught errors
+	process.on('uncaughtException', (error) => {
+		logger.error(`Uncaught exception: ${error}`);
+	});
 });
 
 async function handleShutdown() {

@@ -86,42 +86,49 @@ class PotatoAI {
 	}
 
 	static async extract(elementHtml: string, action: WebAction, onUpdate: (update: any) => void) {
+		try {
 		// TODO: clean up the html a lot
 
-		const markdown = await NodeHtmlMarkdown.translate(elementHtml, { keepDataImages: true });
+			const markdown = await NodeHtmlMarkdown.translate(elementHtml, { keepDataImages: true });
 
-		// first build schema based on subActions of the action.
-		const schema = buildSchema(action);
+			// first build schema based on subActions of the action.
+			const schema = buildSchema(action);
 
-		if (!markdown) {
+			if (!markdown) {
 			// return empty object based on schema
-			return {};
-		}
+				return {};
+			}
 
-		const response = await openai.chat.completions.create({
-			model: 'gpt-4o',
-			messages: [
-				{
-					role: 'system',
-					content: 'Here is a component on a webpage in markdown format. Please extract the data from it according to the provided schema.',
-				},
-				{
-					role: 'user',
-					content: [
-						{
-							type: 'text',
-							// text: 'email: robfarlow@gmail.com, location: San Francisco, CA',
-							text: markdown,
-						},
-					],
-				},
-			],
-			response_format: zodResponseFormat(schema, action.parameter.name),
+			logger.info('calling openai to extract', markdown);
+
+			const response = await openai.chat.completions.create({
+				model: 'gpt-4o',
+				messages: [
+					{
+						role: 'system',
+						content: 'Here is a component on a webpage in markdown format. Please extract the data from it according to the provided schema.',
+					},
+					{
+						role: 'user',
+						content: [
+							{
+								type: 'text',
+								// text: 'email: robfarlow@gmail.com, location: San Francisco, CA',
+								text: markdown,
+							},
+						],
+					},
+				],
+				response_format: zodResponseFormat(schema, action.parameter.name),
 			// response_format: zodResponseFormat(z.object({ email: z.string(), location: z.string() }), 'details'),
-		});
+			});
 
-		const result = JSON.parse(response.choices[0].message.content || '{}');
-		return result;
+			const result = JSON.parse(response.choices[0].message.content || '{}');
+			return result;
+		} catch (error) {
+			logger.error('Error calling openai to extract', error);
+			return null;
+		}
 	}
 
 }

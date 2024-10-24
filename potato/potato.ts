@@ -8,6 +8,7 @@ import WebSocket from 'ws';
 import { injectScript } from './util';
 import PotatoAI from 'potatoai.js';
 import type { WebAction } from './types';
+import { LRUCache } from 'lru-cache';
 
 const logger = getLogger('potato');
 
@@ -24,7 +25,8 @@ class Potato {
 	baseUrl: string;
 	browser: Browser | null;
 	sessionId: string | null;
-	requestCache: Record<string, [Buffer, string]>;
+	// requestCache: Record<string, [Buffer, string]>;
+	requestCache: LRUCache<string, [Buffer, string]>;
 	io: Server;
 	subscribers: Set<string>;
 	browserWsUrl?: string;
@@ -42,7 +44,7 @@ class Potato {
 		this.baseUrl = baseUrl;
 		this.browser = null;
 		this.sessionId = null;
-		this.requestCache = {};
+		this.requestCache = new LRUCache<string, [Buffer, string]>({ max: 1000 });
 		this.subscribers = new Set<string>();
 		this.proxySocket = null;
 		this.connected = false;
@@ -134,7 +136,7 @@ class Potato {
 						try {
 							const content = await response.buffer();
 							const contentType = response.headers()['content-type'];
-							this.requestCache[response.url()] = [content, contentType];
+							this.requestCache.set(response.url(), [content, contentType]);
 						} catch (_) {
 							logger.error('Error caching response', response.url());
 						}
@@ -272,12 +274,15 @@ class Potato {
 				await page.evaluate(`window.scrollTo(${update.data.x}, ${update.data.y})`);
 			} else if (update.type === 'reload') {
 				await page.reload();
+				await page.waitForNavigation();
 			} else if (update.type === 'navigate') {
 				await page.goto(update.data);
 			} else if (update.type === 'go-back') {
 				await page.goBack();
+				await page.waitForNavigation();
 			} else if (update.type === 'go-forward') {
 				await page.goForward();
+				await page.waitForNavigation();
 			} else if (update.type === 'mousemove') {
 				await page.mouse.move(update.data.x, update.data.y);
 			} else if (update.type === 'input') {
@@ -350,8 +355,9 @@ class Potato {
 				path = `${originUrl}${path}`;
 			}
 
-			if (this.requestCache[path]) {
-				const [content, contentType] = this.requestCache[path];
+			const cached = this.requestCache.get(path);
+			if (cached) {
+				const [content, contentType] = cached;
 				if (content.length > 0) {
 					return { buffer: content, contentType };
 				}
@@ -364,7 +370,7 @@ class Potato {
 			const content = dataUrl.split(',')[1];
 			const contentBytes = Buffer.from(content, 'base64');
 
-			this.requestCache[path] = [contentBytes, contentType];
+			this.requestCache.set(path, [contentBytes, contentType]);
 			return { buffer: contentBytes, contentType };
 		} catch (error) {
 			logger.error('Failed to get static resource', error);
@@ -496,6 +502,7 @@ class Potato {
 					return response;
 				} else {
 					await this.processUpdate({ type: 'click', data: { shinpadsId: elements[0].shinpadsId } });
+					await page.waitForNavigation({ waitUntil: 'networkidle0' });
 				}
 			} else {
 				// find element, recursivley run action

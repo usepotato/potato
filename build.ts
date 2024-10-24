@@ -1,6 +1,6 @@
 await Bun.build({
 	entrypoints: ['./frontend/index.tsx'],
-	outdir: './dist/potato',
+	outdir: './dist/plato',
 	minify: true,
 	sourcemap: 'external',
 	splitting: true,
@@ -13,7 +13,7 @@ import path from 'path';
 
 async function copyPublicFolder() {
 	const source = './frontend/public';
-	const destination = './dist/potato';
+	const destination = './dist/plato';
 
 	await fs.mkdir(destination, { recursive: true });
 

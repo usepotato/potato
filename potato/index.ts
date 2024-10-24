@@ -50,13 +50,13 @@ app.all('*', async (req, res, next) => {
 	next();
 });
 
-app.use('/potato', express.static(path.join(__dirname, '../dist/potato')));
+app.use('/plato', express.static(path.join(__dirname, '../dist/plato')));
 
-app.get('/potato', (req, res) => {
-	res.sendFile(path.resolve(__dirname, '../dist/potato/index.html'));
+app.get('/plato', (req, res) => {
+	res.sendFile(path.resolve(__dirname, '../dist/plato/index.html'));
 });
 
-app.get('/potato/session/:id/status', async (req, res) => {
+app.get('/plato/session/:id/status', async (req, res) => {
 	const { id } = req.params;
 	const potato = await app.locals.potato;
 	const active = potato.browser && potato.sessionId === id;

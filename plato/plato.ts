@@ -115,7 +115,10 @@ class Plato {
 			}
 			this.proxySocket = new WebSocket(this.browserWsUrl);
 			logger.info('browserData', JSON.stringify(browserData));
-			this.browser = await puppeteer.connect({ browserWSEndpoint: this.browserWsUrl });
+			this.browser = await puppeteer.connect({
+				browserWSEndpoint: this.browserWsUrl,
+				defaultViewport: { width: 1600, height: 900 }
+			});
 
 
 			const onTargetCreated = async (target: Target) => {
@@ -146,6 +149,7 @@ class Plato {
 						try {
 							if (page.mainFrame() === frame) {
 								this.pageInitialized.set(page, false);
+								this.openRequests.set(page, new Set<string>());
 								await this.publishUpdate({ type: 'loading', data: { 'loading': true } });
 								await page.waitForSelector('body');
 								try {
@@ -409,6 +413,36 @@ class Plato {
 				return await this.processUpdate({ type: 'navigate', data: action.parameter.name });
 			}
 
+			if (action.parameter.type === 'act') {
+				const onPotatoAIUpdate = async (update: any) => {
+					if (update.type === 'considered-elements') {
+						await this.publishUpdate({ type: 'action-update', data: { actionId: action.id, consideredElements: update.data } });
+					}
+				};
+
+				const shinpadsId = await PlatoAI.act(page, action.parameter.name, onPotatoAIUpdate);
+				if (shinpadsId) {
+					await this.processUpdate({ type: 'click', data: { shinpadsId } });
+					return true;
+				}
+				return false;
+			} else if (action.parameter.type === 'input') {
+				const words = action.parameter.name.split(' ');
+				for (const word of words) {
+					// if word is surrounded by square brackets like [Enter] or [Shift] then pres that key else type the word
+					if (word.startsWith('[') && word.endsWith(']')) {
+						try {
+							await page.keyboard.press(word.slice(1, -1) as KeyInput);
+						} catch (_) {
+							logger.warn('Failed to press key', word.slice(1, -1));
+						}
+					} else {
+						await page.keyboard.type(word + ' ');
+					}
+				}
+				return true;
+			}
+
 
 			const elements = await page.evaluate((action, rootElementId) => {
 				const parentElement = document.querySelector(`[shinpads-id="${rootElementId}"]`);
@@ -530,6 +564,7 @@ class Plato {
 					resolve();
 				} else {
 					logger.info(`Network busy, with ${this.openRequests.get(page)?.size} requests waiting... on ${page.url()}`);
+					logger.info(this.openRequests.get(page));
 					setTimeout(checkIdle, 100);
 				}
 			};
@@ -573,6 +608,10 @@ class Plato {
 			}
 			logger.info('Waiting for body');
 			// find body's shinpads id
+
+			await this.#waitForNetworkIdle(page);
+			await this.#waitForPageInitialized(page);
+
 			const rootElement = await page.evaluate(() => document.querySelector('body')?.getAttribute('shinpads-id'));
 
 			if (!rootElement) throw new Error('No body found running action');

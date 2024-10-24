@@ -160,8 +160,10 @@ function buildSchema(action: WebAction) {
 
 async function buildActOptions(page: Page, annotations: any) {
 	// screenshot each anotation, describe it with LLM, return it as option with unique ID
+	const fullScreenshot = await page.screenshot({ encoding: 'binary' });
+
 	const options = await Promise.all(annotations.map(async (annotation: any, index: number) => {
-		const screenshot = await screenShotAnnotation(page, annotation);
+		const screenshot = await screenShotAnnotation(fullScreenshot, annotation);
 		const response = await openai.chat.completions.create({
 			model: 'gpt-4o-mini',
 			messages: [
@@ -198,8 +200,7 @@ async function buildActOptions(page: Page, annotations: any) {
 	return options;
 }
 
-async function screenShotAnnotation(page: Page, annotation: any) {
-	const screenshot = await page.screenshot({ encoding: 'binary' });
+async function screenShotAnnotation(screenshot: Uint8Array, annotation: any) {
 	// crop just the annotation
 	const { x, y, width, height } = annotation.annotation.rect;
 	let sharpImage = sharp(screenshot);

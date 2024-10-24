@@ -248,6 +248,14 @@ class Plato {
 		};
 	}
 
+	async endSession() {
+		for (const subscriber of this.subscribers) {
+			this.io.to(subscriber).disconnectSockets();
+		}
+		this.sessionId = null;
+		await this.#setAvailable();
+	}
+
 	async processUpdate(update: BrowserUpdate) {
 
 		try {

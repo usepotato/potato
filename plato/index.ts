@@ -89,6 +89,20 @@ app.post('/start-session', async (req, res) => {
 	res.send(response);
 });
 
+app.post('/end-session', async (req, res) => {
+	const { browserSessionId } = req.body;
+	logger.log(`Ending session for browser session ${browserSessionId}`);
+
+	if (browserSessionId !== app.locals.plato.sessionId) {
+		res.status(400).send('Browser session ID does not match');
+		return;
+	}
+
+	const response = await app.locals.plato.endSession();
+
+	res.send(response);
+});
+
 app.post('/run-web-action', async (req, res) => {
 	const { browserSessionId, action } = req.body;
 	const response = await app.locals.plato.runWebAction(browserSessionId, action);

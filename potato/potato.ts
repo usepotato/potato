@@ -525,6 +525,10 @@ class Potato {
 	async #waitForNetworkIdle(page: Page) {
 		return new Promise<void>((resolve) => {
 			const checkIdle = () => {
+				if (page.isClosed()) {
+					logger.warn('Page closed while waiting for network idle', page.url());
+					return resolve();
+				}
 				if (this.openRequests.get(page)?.size === 0) {
 					logger.info(`Network clear, proceeding on ${page.url()}`);
 					resolve();
@@ -540,6 +544,10 @@ class Potato {
 	async #waitForPageInitialized(page: Page) {
 		return new Promise<void>((resolve) => {
 			const checkInitialized = () => {
+				if (page.isClosed()) {
+					logger.warn('Page closed while waiting for initialization', page.url());
+					return resolve();
+				}
 				if (this.pageInitialized.get(page)) {
 					logger.info(`Page ${page.url()} initialized, continuing`);
 					resolve();

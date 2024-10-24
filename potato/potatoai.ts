@@ -134,12 +134,20 @@ class PotatoAI {
 }
 
 function buildSchema(action: WebAction) {
-	if (['text', 'image'].includes(action.parameter.type)) {
-		return z.string().nullable();
-	} else if (action.parameter.type === 'number') {
-		return z.number().nullable();
-	} else if (action.parameter.type === 'boolean') {
-		return z.boolean().nullable();
+	if (['text', 'image', 'number', 'boolean'].includes(action.parameter.type)) {
+		let type: z.ZodType = z.string().nullable();
+		if (['text', 'image'].includes(action.parameter.type)) {
+			type = z.string().nullable();
+		} else if (action.parameter.type === 'number') {
+			type = z.number().nullable();
+		} else if (action.parameter.type === 'boolean') {
+			type = z.boolean().nullable();
+		}
+		if (action.parameter.isArray) {
+			return z.array(type);
+		} else {
+			return type;
+		}
 	}
 
 	const schema: Record<string, z.ZodType> = {};

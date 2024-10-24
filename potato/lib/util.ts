@@ -9,6 +9,6 @@ export const getBaseUrl = async () => {
 		});
 		return `http://${res.data}`;
 	} catch (_) {
-		return `http://localhost:${Config.PORT}`;
+		return `http://0.0.0.0:${Config.PORT}`;
 	}
 };

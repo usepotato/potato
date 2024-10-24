@@ -10,6 +10,7 @@ services:
     network_mode: host
     ports:
       - "8080:80"
+    user: "root"
     env_file:
       - .env
 

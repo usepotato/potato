@@ -88,8 +88,11 @@ class Potato {
 
 	async #getPage(): Promise<Page | null> {
 		if (!this.browser) { return null; }
-		const pages = await this.browser.pages();
-		if (pages.length) return pages[pages.length - 1];
+		let pages = await this.browser.pages();
+		pages = pages.filter((page) => !page.isClosed());
+		if (pages.length) {
+			return pages[pages.length - 1];
+		}
 
 		const page = await this.browser.newPage();
 		return page;
@@ -183,6 +186,7 @@ class Potato {
 
 					page.on('response', onResponse);
 					page.on('framenavigated', onFrameNavigated);
+					page.on('console', (msg) => logger.info('console msg', msg.text()));
 				}
 			};
 

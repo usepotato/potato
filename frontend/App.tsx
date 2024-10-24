@@ -4,7 +4,6 @@ import { io, Socket } from 'socket.io-client';
 import styled from '@emotion/styled';
 import ArrowBackIcon from 'icons/ArrowBackIcon';
 import ReloadIcon from 'icons/ReloadIcon';
-import LogoIcon from 'icons/LogoIcon';
 import MouseClickIcon from 'icons/MouseClickIcon';
 import CubeIcon from 'icons/CubeIcon';
 import CursorTypingIcon from 'icons/CursorTypingIcon';

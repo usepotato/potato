@@ -257,6 +257,7 @@ class Potato {
 			if (update.type === 'resize') {
 				await page.setViewport(update.data);
 			} else if (update.type === 'click') {
+				await page.waitForSelector(`[shinpads-id="${update.data.shinpadsId}"]`, { timeout: 1000 });
 				if (update.data.newTab) {
 					// Use page.evaluate to modify the click behavior
 					await page.evaluate((shinpadsId) => {
@@ -296,9 +297,12 @@ class Potato {
 				await page.keyboard.press(update.data.key);
 			} else {
 				logger.error(`Unknown update type: ${update.type}`);
+				return false;
 			}
+			return true;
 		} catch (error) {
 			logger.error('Failed to process update', error);
+			return false;
 		}
 	}
 
@@ -338,10 +342,10 @@ class Potato {
 
 	async getStaticResource(path: string) {
 		const page = await this.#getPage();
-		if (!page) { return null; }
+		if (!page || page.isClosed()) { return null; }
 
 		try {
-			await page.waitForSelector('body');
+			await this.#waitForPageInitialized(page);
 
 			if (path.startsWith('/')) {
 				path = `${page.url()}${path}`;
@@ -394,39 +398,9 @@ class Potato {
 			await this.#waitForNetworkIdle(page);
 
 			if (action.type === 'navigate') {
-				await this.processUpdate({ type: 'navigate', data: action.parameter.name });
-				return true;
+				return await this.processUpdate({ type: 'navigate', data: action.parameter.name });
 			}
 
-			if (action.parameter.type === 'act') {
-				const onPotatoAIUpdate = async (update: any) => {
-					if (update.type === 'considered-elements') {
-						await this.publishUpdate({ type: 'action-update', data: { actionId: action.id, consideredElements: update.data } });
-					}
-				};
-
-				const shinpadsId = await PotatoAI.act(page, action.parameter.name, onPotatoAIUpdate);
-				if (shinpadsId) {
-					await this.processUpdate({ type: 'click', data: { shinpadsId } });
-					return true;
-				}
-				return false;
-			} else if (action.parameter.type === 'input') {
-				const words = action.parameter.name.split(' ');
-				for (const word of words) {
-					// if word is surrounded by square brackets like [Enter] or [Shift] then pres that key else type the word
-					if (word.startsWith('[') && word.endsWith(']')) {
-						try {
-							await page.keyboard.press(word.slice(1, -1) as KeyInput);
-						} catch (_) {
-							logger.warn('Failed to press key', word.slice(1, -1));
-						}
-					} else {
-						await page.keyboard.type(word + ' ');
-					}
-				}
-				return true;
-			}
 
 			const elements = await page.evaluate((action, rootElementId) => {
 				const parentElement = document.querySelector(`[shinpads-id="${rootElementId}"]`);
@@ -434,7 +408,7 @@ class Potato {
 				return elements.map((el) => window.getElementData(el));
 			}, action, rootElementId);
 
-			const getActionElementValue = async (element) => {
+			const getActionElementValue = async (element: any) => {
 				if (action.parameter.type === 'object') {
 					// call for all subactions
 					const res: Record<string, any> = {};
@@ -468,6 +442,10 @@ class Potato {
 					return [];
 				} else {
 					const elementHtml = await page.evaluate((element) => document.querySelector(`[shinpads-id="${element.shinpadsId}"]`)?.outerHTML, elements[0]);
+					if (!elementHtml) {
+						logger.warn('No element html found for extraction', elements[0].shinpadsId);
+						return null;
+					}
 					return await PotatoAI.extract(elementHtml, action, () => {});
 				}
 			} else if (action.parameter.type === 'click') {
@@ -477,10 +455,18 @@ class Potato {
 					for (const element of elements) {
 						const res: Record<string, any> = {};
 						logger.info('Clicking on element', element.shinpadsId);
-						await this.processUpdate({ type: 'click', data: { shinpadsId: element.shinpadsId, newTab: true } });
+						const success = await this.processUpdate({ type: 'click', data: { shinpadsId: element.shinpadsId, newTab: true } });
+						if (!success) {
+							logger.warn('Failed to click on element', element.shinpadsId);
+							continue;
+						}
 						// wait for new page to be created
 						await new Promise(resolve => this.browser?.once('targetcreated', resolve));
 						const newPage = await this.#getPage();
+						if (!newPage) {
+							logger.warn('Failed to get new page');
+							continue;
+						}
 						logger.info('newPage loaded', newPage?.url());
 						// wait for page to be loaded
 						await this.#waitForPageInitialized(newPage);
@@ -489,8 +475,10 @@ class Potato {
 						// await this.#waitForNetworkIdle();
 						logger.info('Running sub actions', action.subActions.length);
 						res._url = newPage?.url();
-						for (const subAction of action.subActions) {
-							res[subAction.parameter.name] = await this.#runAction(newPage, subAction, newBody);
+						if (newBody) {
+							for (const subAction of action.subActions) {
+								res[subAction.parameter.name] = await this.#runAction(newPage, subAction, newBody);
+							}
 						}
 						response.push(res);
 						try {
@@ -549,7 +537,6 @@ class Potato {
 					return resolve();
 				}
 				if (this.pageInitialized.get(page)) {
-					logger.info(`Page ${page.url()} initialized, continuing`);
 					resolve();
 				} else {
 					logger.info(`Page ${page.url()} not initialized, waiting...`);
@@ -561,7 +548,7 @@ class Potato {
 	}
 
 
-	async runWebAction(browserSessionId: string, action: WebAction) {
+	async runWebAction(browserSessionId: string, action: WebAction, reRun = true): Promise<any> {
 		logger.info('___RUNNING WEB ACTION', action.parameter?.name || '', action.type, action.parameter?.type || '', browserSessionId);
 		await this.publishUpdate({ type: 'action-start', data: { actionId: action.id } });
 
@@ -578,12 +565,12 @@ class Potato {
 			}
 			logger.info('Waiting for body');
 			// find body's shinpads id
-			const rootElement = await page.evaluate(() => {
-				const body = document.querySelector('body');
-				return body?.getAttribute('shinpads-id');
-			});
+			const rootElement = await page.evaluate(() => document.querySelector('body')?.getAttribute('shinpads-id'));
+
+			if (!rootElement) throw new Error('No body found running action');
+
 			const response = await this.#runAction(page, action, rootElement);
-			logger.info('Waiting for network idle');
+
 			try {
 				await Promise.race([
 					Promise.all([
@@ -598,6 +585,11 @@ class Potato {
 			await this.publishUpdate({ type: 'action-end', data: { actionId: action.id, response } });
 			return response;
 		} catch (error) {
+			// if error was Execution context was destroyed error, then run again
+			if (reRun && error instanceof Error && error.message.includes('Execution context was destroyed')) {
+				logger.info('Page navigated mid-action, re-running action');
+				return await this.runWebAction(browserSessionId, action, false);
+			}
 			logger.error('Failed to run web action', error);
 			await this.publishUpdate({ type: 'action-end', data: { actionId: action.id, response: false } });
 			return false;

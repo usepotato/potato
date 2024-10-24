@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "ESNext",
     "moduleDetection": "force",
@@ -23,7 +23,7 @@
     "baseUrl": ".",
     "paths": {
       "@lib/*": ["lib/*"],
-    }
+    },]
   },
   // "include": ["./potato/**/*"],
   // "exclude": ["node_modules", "dist", "build", "out", "frontend"]

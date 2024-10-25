@@ -9,12 +9,13 @@ import Plato from './plato';
 import cors from 'cors';
 import path from 'path';
 import WebSocket from 'ws';
+import axios from 'axios';
 
 const logger = getLogger('index');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server, path: '/puppeteer' });
+const wss = new WebSocket.Server({ server, path: '/chrome' });
 
 
 const io = new Server(server, {
@@ -54,6 +55,13 @@ app.use('/plato', express.static(path.join(__dirname, '../dist/plato')));
 
 app.get('/plato', (req, res) => {
 	res.sendFile(path.resolve(__dirname, '../dist/plato/index.html'));
+});
+
+app.get('/chrome/:path', async (req, res) => {
+	logger.info(`Redirecting to ${req.params.path}`);
+	const response = await axios.get(`http://0.0.0.0:9222/${req.params.path}`);
+	logger.info('response from chrome!', response.data);
+	res.send(response.data);
 });
 
 app.get('/plato/session/:id/status', async (req, res) => {
@@ -153,12 +161,14 @@ io.on('disconnect', () => {
 wss.on('connection', async (ws: WebSocket) => {
 	await launchPromise;
 
+	logger.info('Puppeteer connection established');
+
 	app.locals.plato.proxySocket.on('message', (message: string) => {
 		ws.send(message);
 	});
 
 	app.locals.plato.proxySocket.on('error', (error) => {
-		logger.error(`Puppeteer connection error: ${error}`);
+		logger.error(`Puppeteer proxy socket error: ${error}`);
 	});
 
 	app.locals.plato.proxySocket.on('close', () => {
@@ -173,9 +183,8 @@ wss.on('connection', async (ws: WebSocket) => {
 		logger.error(`Puppeteer WS connection error: ${error}`);
 	});
 
-	ws.on('message', async (message: string) => {
-		const { id, method, params } = JSON.parse(message);
-		app.locals.plato.proxySocket.send(JSON.stringify({ id, method, params }));
+	ws.on('message', async (message: Uint8Array) => {
+		app.locals.plato.proxySocket.send(message.toString());
 	});
 
 	ws.on('close', () => {
